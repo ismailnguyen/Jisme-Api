@@ -3,7 +3,6 @@ var cors = require('cors')
 var bodyParser = require("body-parser");
 var mongodb = require("mongodb");
 var sha256 = require("sha256");
-var ObjectID = mongodb.ObjectID;
 
 var app = express();
 app.use(bodyParser.json());
@@ -13,6 +12,7 @@ app.use(cors());
 
 // Create a database variable outside of the database connection callback to reuse the connection pool in app.
 var db;
+var ObjectID = mongodb.ObjectID;
 
 // Database URL
 var db_uri = process.env.MONGODB_URI;
@@ -44,8 +44,8 @@ mongodb.MongoClient.connect(db_uri, function (err, database)
 
 // API ROUTES BELOW
 
-var USERS_API_URL = '/api/users';
-var ACCOUNTS_API_URL = '/api/accounts';
+var USERS_API_URL = '/users';
+var ACCOUNTS_API_URL = '/accounts';
 
 // Generic error handler used by all endpoints.
 function handleError(res, reason, message, code)
