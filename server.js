@@ -1,10 +1,10 @@
-var express = require("express");
-var cors = require('cors')
-var bodyParser = require("body-parser");
-var mongodb = require("mongodb");
-var sha256 = require("sha256");
+const express = require("express");
+const cors = require('cors')
+const bodyParser = require("body-parser");
+const mongodb = require("mongodb");
+const sha256 = require("sha256");
 
-var app = express();
+const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
@@ -18,8 +18,8 @@ var ObjectID = mongodb.ObjectID;
 var db_uri = process.env.MONGODB_URI;
 
 // Database collections
-var USERS_COLLECTION = "users";
-var ACCOUNTS_COLLECTION = "accounts";
+const USERS_COLLECTION = "users";
+const ACCOUNTS_COLLECTION = "accounts";
 
 // Connect to the database before starting the application server.
 mongodb.MongoClient.connect(db_uri, function (err, database)
@@ -50,8 +50,16 @@ var ACCOUNTS_API_URL = '/accounts';
 // Generic error handler used by all endpoints.
 function handleError(res, reason, message, code)
 {
-  console.log("ERROR: " + reason);
-  res.status(code || 500).json({"error": message});
+  console.log('ERROR: ' + message + '(' + reason + ')');
+  res
+  .status(code || 500)
+  .json(
+	{
+		"error": {
+			"message": message,
+			"reason": reason
+		}
+	});
 }
 
 function getCredentialsFromAuth(auth)
@@ -260,6 +268,8 @@ app.post(ACCOUNTS_API_URL, function(req, res)
     }
 
     var account = req.body;
+	
+	delete account._id;
     account.user_id = credentials.user_token;
     account.created_date = new Date();
   
