@@ -16,13 +16,14 @@ var ObjectID = mongodb.ObjectID;
 
 // Database URL
 var db_uri = process.env.MONGODB_URI;
+var db_name = process.env.MONGO_DATABASE_NAME;
 
 // Database collections
 const USERS_COLLECTION = "users";
 const ACCOUNTS_COLLECTION = "accounts";
 
 // Connect to the database before starting the application server.
-mongodb.MongoClient.connect(db_uri, function (err, database)
+mongodb.MongoClient.connect(db_uri, function (err, client)
 {
   if (err)
   {
@@ -31,7 +32,7 @@ mongodb.MongoClient.connect(db_uri, function (err, database)
   }
 
   // Save database object from the callback for reuse.
-  db = database;
+  db = client.db(db_name);
   console.log("Database connection ready");
 
   // Initialize the app.
