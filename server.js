@@ -16,7 +16,7 @@ var ObjectID = mongodb.ObjectID;
 
 // Database URL
 var db_uri = process.env.MONGODB_URI;
-var db_name = process.env.MONGO_DATABASE_NAME;
+var db_name = process.env.MONGODB_DATABASE_NAME;
 
 // Database collections
 const USERS_COLLECTION = "users";
