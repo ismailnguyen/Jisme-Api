@@ -1,12 +1,12 @@
-const handleError = require('../helpers/errorHandler.js');
-const getCredentialsFromAuth = require('../helpers/credentialHelper.js');
+const errorHandler = require('../helpers/errorHandler.js');
+const credentialHelper = require('../helpers/credentialHelper.js');
 
 exports.findAll = function(req, res)
 {
  const usersCollection = req.app.locals.usersCollection;
  const accountsCollection = req.app.locals.accountsCollection;
 	
-  var credentials = getCredentialsFromAuth(req);
+  var credentials = credentialHelper.getCredentialsFromAuth(req);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -14,7 +14,7 @@ exports.findAll = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to get accounts';
-      handleError(res, message, "No user found");
+      errorHandler.handleError(res, message, "No user found");
       return;
     }
 
@@ -24,7 +24,7 @@ exports.findAll = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error';
-        handleError(res, message, "Failed to get accounts.");
+        errorHandler.handleError(res, message, "Failed to get accounts.");
         return;
       }
   
@@ -37,7 +37,7 @@ exports.create = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
 	const accountsCollection = req.app.locals.accountsCollection;
-	var credentials = getCredentialsFromAuth(req);
+	var credentials = credentialHelper.getCredentialsFromAuth(req);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -45,7 +45,7 @@ exports.create = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to add account';
-      handleError(res, message, "No user found");
+      errorHandler.handleError(res, message, "No user found");
       return;
     }
 
@@ -61,7 +61,7 @@ exports.create = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error while adding account';
-        handleError(res, message, "Failed to add new account.");
+        errorHandler.handleError(res, message, "Failed to add new account.");
         return;
       }
   
@@ -74,7 +74,7 @@ exports.update = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
 	const accountsCollection = req.app.locals.accountsCollection;
-	var credentials = getCredentialsFromAuth(req);
+	var credentials = credentialHelper.getCredentialsFromAuth(req);
   
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -82,7 +82,7 @@ exports.update = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to update account';
-      handleError(res, message, "No user found");
+      errorHandler.handleError(res, message, "No user found");
       return;
     }
 
@@ -104,7 +104,7 @@ exports.update = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error while updating account';
-        handleError(res, message, "Failed to update account");
+        errorHandler.handleError(res, message, "Failed to update account");
         return;
       }
     
@@ -117,7 +117,7 @@ exports.remove = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
 	const accountsCollection = req.app.locals.accountsCollection;
-	var credentials = getCredentialsFromAuth(req);
+	var credentials = credentialHelper.getCredentialsFromAuth(req);
   
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -125,7 +125,7 @@ exports.remove = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to delete account';
-      handleError(res, message, "No user found");
+      errorHandler.handleError(res, message, "No user found");
       return;
     }
 
@@ -137,7 +137,7 @@ exports.remove = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error while deleting account';
-        handleError(res, message, "Failed to delete account");
+        errorHandler.handleError(res, message, "Failed to delete account");
         return;
       }
       

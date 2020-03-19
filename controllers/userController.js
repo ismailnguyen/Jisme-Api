@@ -1,5 +1,5 @@
 const sha256 = require('sha256');
-const handleError = require('../helpers/errorHandler.js');
+const errorHandler = require('../helpers/errorHandler.js');
 
 exports.login = function(req, res)
 {
@@ -8,7 +8,7 @@ exports.login = function(req, res)
 
   if (user.email == '' || user.password == '')
   {
-    handleError(res, "Invalid user input", "Must provide an email and password.", 400);
+    errorHandler.handleError(res, "Invalid user input", "Must provide an email and password.", 400);
     return;
   }
 
@@ -20,13 +20,13 @@ exports.login = function(req, res)
     if (err)
     {
       let message = err ? err.message : 'Error';
-      handleError(res, message, "Failed to find user");
+      errorHandler.handleError(res, message, "Failed to find user");
       return;
     }
 
     if (!data)
     {
-      handleError(res, "No user found", "Failed to find user", 404);
+      errorHandler.handleError(res, "No user found", "Failed to find user", 404);
       return;
     }
 
@@ -51,7 +51,7 @@ exports.register = function(req, res)
 
   if (user.email == '' || user.password == '')
   {
-    handleError(res, "Invalid user input", "Must provide an email and password.", 400);
+    errorHandler.handleError(res, "Invalid user input", "Must provide an email and password.", 400);
     return;
   }
 
@@ -64,13 +64,13 @@ exports.register = function(req, res)
     if (err)
     {
       let message = err ? err.message : 'Error';
-      handleError(res, message, "User already exists");
+      errorHandler.handleError(res, message, "User already exists");
       return;
     }
 
     if (data)
     {
-      handleError(res, "User found", "User already exists", 403);
+      errorHandler.handleError(res, "User found", "User already exists", 403);
       return;
     }
 
@@ -83,7 +83,7 @@ exports.register = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error';
-        handleError(res, message, "Failed to create new user.");
+        errorHandler.handleError(res, message, "Failed to create new user.");
         return;
       } 
 
@@ -112,7 +112,7 @@ exports.update = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to update';
-      handleError(res, message, "No user found");
+      errorHandler.handleError(res, message, "No user found");
       return;
     }
 
@@ -133,7 +133,7 @@ exports.update = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error while updating user';
-        handleError(res, message, "Failed to update user");
+        errorHandler.handleError(res, message, "Failed to update user");
         return;
       }
 
