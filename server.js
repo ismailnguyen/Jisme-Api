@@ -21,11 +21,6 @@ exports.storeDbCollections = function (app, dbConnection)
 	app.locals.accountsCollection = dbConnection.collection('accounts');
 }
 
-exports.storeObjectId = function (app, objectId)
-{
-	app.locals.ObjectID = objectId;
-}
-
 exports.start = function (app)
 {
 	var server = app.listen(process.env.PORT || 8090, function ()

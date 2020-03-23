@@ -1,5 +1,6 @@
 const errorHandler = require('../helpers/errorHandler.js');
 const credentialHelper = require('../helpers/credentialHelper.js');
+var ObjectID = require('mongodb').ObjectID;
 
 exports.findAll = function(req, res)
 {
@@ -73,7 +74,6 @@ exports.update = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
   const accountsCollection = req.app.locals.accountsCollection;
-  const ObjectID = req.app.locals.ObjectID;
 	const credentials = credentialHelper.getCredentialsFromAuth(req);
   
   usersCollection
@@ -117,7 +117,6 @@ exports.remove = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
   const accountsCollection = req.app.locals.accountsCollection;
-  const ObjectID = req.app.locals.ObjectID;
 	const credentials = credentialHelper.getCredentialsFromAuth(req);
   
   usersCollection
