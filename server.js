@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { port } = require('./config.js');
 
 exports.init = function (routes)
 {	
@@ -23,9 +24,5 @@ exports.storeDbCollections = function (app, dbConnection)
 
 exports.start = function (app)
 {
-	var server = app.listen(process.env.PORT || 8090, function ()
-	{
-		var port = server.address().port;
-		console.info(`App now running on port ${port}`);
-	});
+	app.listen(port, () => console.info(`App now running on port ${port}`));
 }

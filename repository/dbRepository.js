@@ -1,10 +1,5 @@
+const { db_uri, db_name } = require('../config.js');
 const MongoClient = require('mongodb').MongoClient;
-
-// Database URL
-const db_uri = process.env.MONGODB_URI;
-
-// Database name
-const db_name = process.env.MONGODB_DATABASE_NAME;
 
 exports.getDbConnection = function () {
 	return MongoClient
