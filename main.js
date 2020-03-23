@@ -9,8 +9,9 @@ function main ()
 		.then(app =>
 		{
 			repository.getDbConnection()
-			.then(dbConnection => {
+			.then(({ dbConnection, objectId }) => {
 				server.storeDbCollections(app, dbConnection);
+				server.storeObjectId(app, objectId);
 				
 				server.start(app);
 			});		

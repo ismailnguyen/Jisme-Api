@@ -46,8 +46,8 @@ exports.login = function(req, res)
 exports.register = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
-	  var user = req.body;
-	  user.created_date = new Date();
+  var user = req.body;
+  user.created_date = new Date();
 
   if (user.email == '' || user.password == '')
   {
@@ -103,8 +103,9 @@ exports.register = function(req, res)
 
 exports.update = function(req, res)
 {
-	const usersCollection = req.app.locals.usersCollection;
-	var credentials = getCredentialsFromAuth(req);
+  const usersCollection = req.app.locals.usersCollection;
+  const ObjectID = req.app.locals.ObjectID;
+	const credentials = getCredentialsFromAuth(req);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)

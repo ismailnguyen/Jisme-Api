@@ -5,8 +5,7 @@ exports.findAll = function(req, res)
 {
  const usersCollection = req.app.locals.usersCollection;
  const accountsCollection = req.app.locals.accountsCollection;
-	
-  var credentials = credentialHelper.getCredentialsFromAuth(req);
+ const credentials = credentialHelper.getCredentialsFromAuth(req);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -37,7 +36,7 @@ exports.create = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
 	const accountsCollection = req.app.locals.accountsCollection;
-	var credentials = credentialHelper.getCredentialsFromAuth(req);
+	const credentials = credentialHelper.getCredentialsFromAuth(req);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -73,8 +72,9 @@ exports.create = function(req, res)
 exports.update = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
-	const accountsCollection = req.app.locals.accountsCollection;
-	var credentials = credentialHelper.getCredentialsFromAuth(req);
+  const accountsCollection = req.app.locals.accountsCollection;
+  const ObjectID = req.app.locals.ObjectID;
+	const credentials = credentialHelper.getCredentialsFromAuth(req);
   
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -116,8 +116,9 @@ exports.update = function(req, res)
 exports.remove = function(req, res)
 {
 	const usersCollection = req.app.locals.usersCollection;
-	const accountsCollection = req.app.locals.accountsCollection;
-	var credentials = credentialHelper.getCredentialsFromAuth(req);
+  const accountsCollection = req.app.locals.accountsCollection;
+  const ObjectID = req.app.locals.ObjectID;
+	const credentials = credentialHelper.getCredentialsFromAuth(req);
   
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
