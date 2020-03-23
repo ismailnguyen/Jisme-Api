@@ -131,16 +131,16 @@ exports.update = function(req, res)
     };
 
     usersCollection
-	.updateOne({_id: new ObjectID(user_id), email: credentials.email, token: credentials.user_token}, user, function(err, data)
-    {
-      if (err)
+    .updateOne({_id: new ObjectID(user_id), email: credentials.email, token: credentials.user_token}, { $set: user }, function(err, data)
       {
-        let message = err ? err.message : 'Error while updating user';
-        errorHandler.handleError(res, message, "Failed to update user");
-        return;
-      }
+        if (err)
+        {
+          let message = err ? err.message : 'Error while updating user';
+          errorHandler.handleError(res, message, "Failed to update user");
+          return;
+        }
 
-      res.status(200).end();
-    });
+        res.status(200).end();
+      });
   });
 }

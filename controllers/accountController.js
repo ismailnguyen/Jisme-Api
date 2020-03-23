@@ -100,18 +100,18 @@ exports.update = function(req, res)
     };
 
     accountsCollection
-	.updateOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, account, function(err, data)
-    {
-      if (err)
+    .updateOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, { $set: account }, function(err, data)
       {
-        let message = err ? err.message : 'Error while updating account';
-        errorHandler.handleError(res, message, "Failed to update account");
-        return;
-      }
-    
-      res.status(200).end();
+        if (err)
+        {
+          let message = err ? err.message : 'Error while updating account';
+          errorHandler.handleError(res, message, "Failed to update account");
+          return;
+        }
+      
+        res.status(200).end();
+      });
     });
-  });
 }
 
 exports.remove = function(req, res)
