@@ -3,11 +3,11 @@ const credentialHelper = require('../helpers/credentialHelper.js');
 
 var ObjectID = require('mongodb').ObjectID;
 
-exports.findAll = function(req, res)
+exports.findAll = function(request, response)
 {
- const usersCollection = req.app.locals.usersCollection;
- const accountsCollection = req.app.locals.accountsCollection;
- const credentials = credentialHelper.getCredentialsFromAuth(req);
+ const usersCollection = request.app.locals.usersCollection;
+ const accountsCollection = request.app.locals.accountsCollection;
+ const credentials = credentialHelper.getCredentialsFromAuth(request);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -15,8 +15,7 @@ exports.findAll = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to get accounts';
-      errorHandler.handleError(res, message, "No user found");
-      return;
+      return errorHandler.handleError(response, message, "No user found");
     }
 
     accountsCollection
@@ -25,20 +24,19 @@ exports.findAll = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error';
-        errorHandler.handleError(res, message, "Failed to get accounts.");
-        return;
+        return errorHandler.handleError(response, message, "Failed to get accounts.");
       }
   
-      res.status(200).json(data);
+      response.status(200).json(data);
     });
   });
 }
 
-exports.create = function(req, res)
+exports.create = function(request, response)
 {
-	const usersCollection = req.app.locals.usersCollection;
-	const accountsCollection = req.app.locals.accountsCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(req);
+	const usersCollection = request.app.locals.usersCollection;
+	const accountsCollection = request.app.locals.accountsCollection;
+	const credentials = credentialHelper.getCredentialsFromAuth(request);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -46,36 +44,34 @@ exports.create = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to add account';
-      errorHandler.handleError(res, message, "No user found");
-      return;
+      return errorHandler.handleError(response, message, "No user found");
     }
 
-    var account = req.body;
+    var account = request.body;
 	
-	delete account._id;
+	  delete account._id;
     account.user_id = credentials.user_token;
     account.created_date = new Date();
   
     accountsCollection
-	.insertOne(account, function(err, data)
-    {
-      if (err)
+    .insertOne(account, function(err, data)
       {
-        let message = err ? err.message : 'Error while adding account';
-        errorHandler.handleError(res, message, "Failed to add new account.");
-        return;
-      }
-  
-      res.status(201).json(data.ops[0]);
-    });
+        if (err)
+        {
+          let message = err ? err.message : 'Error while adding account';
+          return errorHandler.handleError(response, message, "Failed to add new account.");
+        }
+    
+        response.status(201).json(data.ops[0]);
+      });
   });
 }
 
-exports.update = function(req, res)
+exports.update = function(request, response)
 {
-	const usersCollection = req.app.locals.usersCollection;
-  const accountsCollection = req.app.locals.accountsCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(req);
+	const usersCollection = request.app.locals.usersCollection;
+  const accountsCollection = request.app.locals.accountsCollection;
+	const credentials = credentialHelper.getCredentialsFromAuth(request);
   
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -83,20 +79,19 @@ exports.update = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to update account';
-      errorHandler.handleError(res, message, "No user found");
-      return;
+      return errorHandler.handleError(response, message, "No user found");
     }
 
-    var account_id = req.params.account_id;
+    var account_id = request.params.account_id;
     
     var account =
     {
-      platform: req.body.platform,
-      login: req.body.login,
-      password: req.body.password,
-      tags: req.body.tags,
+      platform: request.body.platform,
+      login: request.body.login,
+      password: request.body.password,
+      tags: request.body.tags,
       user_id: credentials.user_token,
-      created_date: req.body.created_date
+      created_date: request.body.created_date
     };
 
     accountsCollection
@@ -105,20 +100,19 @@ exports.update = function(req, res)
         if (err)
         {
           let message = err ? err.message : 'Error while updating account';
-          errorHandler.handleError(res, message, "Failed to update account");
-          return;
+          return errorHandler.handleError(response, message, "Failed to update account");
         }
       
-        res.status(200).end();
+        response.status(200).end();
       });
     });
 }
 
-exports.remove = function(req, res)
+exports.remove = function(request, response)
 {
-	const usersCollection = req.app.locals.usersCollection;
-  const accountsCollection = req.app.locals.accountsCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(req);
+	const usersCollection = request.app.locals.usersCollection;
+  const accountsCollection = request.app.locals.accountsCollection;
+	const credentials = credentialHelper.getCredentialsFromAuth(request);
   
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
@@ -126,11 +120,10 @@ exports.remove = function(req, res)
     if (err || !data)
     {
       let message = err ? err.message : 'Error while fetching user to delete account';
-      errorHandler.handleError(res, message, "No user found");
-      return;
+      return errorHandler.handleError(response, message, "No user found");
     }
 
-    var account_id = req.params.account_id;
+    var account_id = request.params.account_id;
     
     accountsCollection
 	.deleteOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, function(err, result)
@@ -138,11 +131,10 @@ exports.remove = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error while deleting account';
-        errorHandler.handleError(res, message, "Failed to delete account");
-        return;
+        return errorHandler.handleError(response, message, "Failed to delete account");
       }
       
-      res.status(204).end();
+      response.status(204).end();
     });
   });
 }

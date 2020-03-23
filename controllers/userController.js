@@ -4,15 +4,14 @@ const credentialHelper = require('../helpers/credentialHelper.js');
 
 var ObjectID = require('mongodb').ObjectID;
 
-exports.login = function(req, res)
+exports.login = function(request, response)
 {
-	const usersCollection = req.app.locals.usersCollection;
-	let user = req.body;
+	const usersCollection = request.app.locals.usersCollection;
+	let user = request.body;
 
   if (user.email == '' || user.password == '')
   {
-    errorHandler.handleError(res, "Invalid user input", "Must provide an email and password.", 400);
-    return;
+    return errorHandler.handleError(response, "Invalid user input", "Must provide an email and password.", 400);
   }
 
   let encryptedPassword = sha256(user.password);
@@ -23,14 +22,12 @@ exports.login = function(req, res)
     if (err)
     {
       let message = err ? err.message : 'Error';
-      errorHandler.handleError(res, message, "Failed to find user");
-      return;
+      return errorHandler.handleError(response, message, "Failed to find user");
     }
 
     if (!data)
     {
-      errorHandler.handleError(res, "No user found", "Failed to find user", 404);
-      return;
+      return errorHandler.handleError(response, "No user found", "Failed to find user", 404);
     }
 
     let loggedUser =
@@ -42,20 +39,19 @@ exports.login = function(req, res)
       last_update_date: data.last_update_date
     };
 
-    res.status(200).json(loggedUser);
+    response.status(200).json(loggedUser);
   });
 }
 
-exports.register = function(req, res)
+exports.register = function(request, response)
 {
-	const usersCollection = req.app.locals.usersCollection;
-  var user = req.body;
+	const usersCollection = request.app.locals.usersCollection;
+  var user = request.body;
   user.created_date = new Date();
 
   if (user.email == '' || user.password == '')
   {
-    errorHandler.handleError(res, "Invalid user input", "Must provide an email and password.", 400);
-    return;
+    return errorHandler.handleError(response, "Invalid user input", "Must provide an email and password.", 400);
   }
 
   // Encrypt user password with SHA256 algorithm
@@ -67,14 +63,12 @@ exports.register = function(req, res)
     if (err)
     {
       let message = err ? err.message : 'Error';
-      errorHandler.handleError(res, message, "User already exists");
-      return;
+      return errorHandler.handleError(response, message, "User already exists");
     }
 
     if (data)
     {
-      errorHandler.handleError(res, "User found", "User already exists", 403);
-      return;
+      return errorHandler.handleError(response, "User found", "User already exists", 403);
     }
 
     // Generate unique token for user
@@ -86,8 +80,7 @@ exports.register = function(req, res)
       if (err)
       {
         let message = err ? err.message : 'Error';
-        errorHandler.handleError(res, message, "Failed to create new user.");
-        return;
+        return errorHandler.handleError(response, message, "Failed to create new user.");
       } 
 
       let registeredUser =
@@ -99,35 +92,36 @@ exports.register = function(req, res)
         token: data.ops[0].token
       };
 
-      res.status(201).json(registeredUser);
+      response.status(201).json(registeredUser);
     });
   });
 }
 
-exports.update = function(req, res)
+exports.update = function(request, response)
 {
-  const usersCollection = req.app.locals.usersCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(req);
+  const usersCollection = request.app.locals.usersCollection;
+	const credentials = credentialHelper.getCredentialsFromAuth(request);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
   {
     if (err || !data)
     {
+      console.log('credentials', credentials);
+      console.log('request', request);
       let message = err ? err.message : 'Error while fetching user to update';
-      errorHandler.handleError(res, message, "No user found");
-      return;
+      return errorHandler.handleError(response, message, "No user found");
     }
 
-    var user_id = req.params.user_id;
+    var user_id = request.params.user_id;
 
     var user =
     {
       email: credentials.email,
-      password: req.body.password || data.password,
+      password: request.body.password || data.password,
       created_date: data.created_date,
       token: credentials.user_token,
-      last_update_date: req.body.last_update_date
+      last_update_date: request.body.last_update_date
     };
 
     usersCollection
@@ -136,11 +130,10 @@ exports.update = function(req, res)
         if (err)
         {
           let message = err ? err.message : 'Error while updating user';
-          errorHandler.handleError(res, message, "Failed to update user");
-          return;
+          return errorHandler.handleError(response, message, "Failed to update user");
         }
 
-        res.status(200).end();
+        response.status(200).end();
       });
   });
 }
