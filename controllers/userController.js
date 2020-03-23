@@ -107,7 +107,7 @@ exports.register = function(req, res)
 exports.update = function(req, res)
 {
   const usersCollection = req.app.locals.usersCollection;
-	const credentials = getCredentialsFromAuth(req);
+	const credentials = credentialHelper.getCredentialsFromAuth(req);
 
   usersCollection
   .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
