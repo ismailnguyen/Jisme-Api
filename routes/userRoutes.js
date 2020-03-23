@@ -9,6 +9,6 @@ module.exports = function (app) {
 	app.route('/users/register')
 		.post(userController.register);
 		
-	app.route('users/:user_id')
+	app.route('/users/:user_id')
 		.put(userController.update);
 }
