@@ -1,5 +1,7 @@
 const sha256 = require('sha256');
 const errorHandler = require('../helpers/errorHandler.js');
+const credentialHelper = require('../helpers/credentialHelper.js');
+
 var ObjectID = require('mongodb').ObjectID;
 
 exports.login = function(req, res)
