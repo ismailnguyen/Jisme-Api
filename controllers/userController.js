@@ -146,7 +146,7 @@ exports.lastUpdateDate = function(request, response)
 	{
 		if (err || !data)
 		{
-			let message = err ? err.message : 'Error while fetching user to update';
+			let message = err ? err.message : 'Error while fetching user to find';
 			return errorHandler.handleError(response, message, "No user found");
 		}
 
