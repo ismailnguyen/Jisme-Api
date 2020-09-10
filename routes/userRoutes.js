@@ -11,4 +11,7 @@ module.exports = function (app) {
 		
 	app.route('/users/:user_id')
 		.put(userController.update);
+		
+	app.route('/users/:user_id')
+		.get(userController.lastUpdateDate);
 }
