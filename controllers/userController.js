@@ -119,7 +119,7 @@ exports.update = function(request, response)
 			password: request.body.password || data.password,
 			created_date: data.created_date,
 			token: credentials.user_token,
-			last_update_date: request.body.last_update_date
+			last_update_date: request.body.last_update_date || new Date()
 		};
 
 		usersCollection
