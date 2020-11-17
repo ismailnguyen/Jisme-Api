@@ -70,7 +70,7 @@ exports.create = function(request, response)
 exports.update = function(request, response)
 {
 	const usersCollection = request.app.locals.usersCollection;
-  const accountsCollection = request.app.locals.accountsCollection;
+	const accountsCollection = request.app.locals.accountsCollection;
 	const credentials = credentialHelper.getCredentialsFromAuth(request);
   
   usersCollection
@@ -91,7 +91,9 @@ exports.update = function(request, response)
       password: request.body.password,
       tags: request.body.tags,
       user_id: credentials.user_token,
-      created_date: request.body.created_date
+      created_date: request.body.created_date,
+	  social_login: request.body.social_login,
+	  notes: request.body.notes
     };
 
     accountsCollection
@@ -111,7 +113,7 @@ exports.update = function(request, response)
 exports.remove = function(request, response)
 {
 	const usersCollection = request.app.locals.usersCollection;
-  const accountsCollection = request.app.locals.accountsCollection;
+	const accountsCollection = request.app.locals.accountsCollection;
 	const credentials = credentialHelper.getCredentialsFromAuth(request);
   
   usersCollection
