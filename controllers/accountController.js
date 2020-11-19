@@ -85,6 +85,7 @@ exports.update = function(request, response)
     var account_id = request.params.account_id;
     
 	var account = request.body;
+	delete account._id;
 	account.user_id = credentials.user_token;
 
     accountsCollection
