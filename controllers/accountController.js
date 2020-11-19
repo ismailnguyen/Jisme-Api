@@ -89,6 +89,7 @@ exports.update = function(request, response)
       platform: request.body.platform,
       login: request.body.login,
       password: request.body.password,
+	  password_clue: request.body.password_clue,
       tags: request.body.tags,
       user_id: credentials.user_token,
       created_date: request.body.created_date,
