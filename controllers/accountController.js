@@ -84,18 +84,8 @@ exports.update = function(request, response)
 
     var account_id = request.params.account_id;
     
-    var account =
-    {
-      platform: request.body.platform,
-      login: request.body.login,
-      password: request.body.password,
-	  password_clue: request.body.password_clue,
-      tags: request.body.tags,
-      user_id: credentials.user_token,
-      created_date: request.body.created_date,
-	  social_login: request.body.social_login,
-	  notes: request.body.notes
-    };
+	var account = request.body;
+	account.user_id = credentials.user_token;
 
     accountsCollection
     .updateOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, { $set: account }, function(err, data)
