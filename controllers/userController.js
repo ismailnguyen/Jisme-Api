@@ -36,7 +36,8 @@ exports.login = function(request, response)
 			email: data.email,
 			created_date: data.created_date,
 			token: data.token,
-			last_update_date: data.last_update_date
+			last_update_date: data.last_update_date,
+			avatarUrl: data.avatarUrl
 		};
 
 		response.status(200).json(loggedUser);
@@ -89,6 +90,7 @@ exports.register = function(request, response)
 				email: data.ops[0].email,
 				created_date: data.ops[0].created_date,
 				last_update_date: data.ops[0].last_update_date,
+				avatarUrl: data.ops[0].avatarUrl,
 				token: data.ops[0].token
 			};
 
@@ -119,7 +121,8 @@ exports.update = function(request, response)
 			password: request.body.password || data.password,
 			created_date: data.created_date,
 			token: credentials.user_token,
-			last_update_date: request.body.last_update_date || new Date()
+			last_update_date: request.body.last_update_date || new Date(),
+			avatarUrl: request.body.avatarUrl || data.avatarUrl
 		};
 
 		usersCollection
