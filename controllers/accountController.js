@@ -84,9 +84,10 @@ exports.update = function(request, response)
 
     var account_id = request.params.account_id;
     
-	var account = request.body;
-	delete account._id;
-	account.user_id = credentials.user_token;
+	  var account = request.body;
+	  delete account._id;
+	  account.user_id = credentials.user_token;
+    account.last_modified_date = new Date();
 
     accountsCollection
     .updateOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, { $set: account }, function(err, data)
