@@ -10,7 +10,7 @@ exports.findAll = function(request, response)
  const credentials = credentialHelper.getCredentialsFromAuth(request);
 
   usersCollection
-  .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
+  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
   {
     if (err || !data)
     {
@@ -19,7 +19,7 @@ exports.findAll = function(request, response)
     }
 
     accountsCollection
-	.find({user_id: credentials.user_token}).toArray(function(err, data)
+	.find({user_id: credentials.uuid}).toArray(function(err, data)
     {
       if (err)
       {
@@ -39,7 +39,7 @@ exports.create = function(request, response)
 	const credentials = credentialHelper.getCredentialsFromAuth(request);
 
   usersCollection
-  .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
+  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
   {
     if (err || !data)
     {
@@ -50,7 +50,7 @@ exports.create = function(request, response)
     var account = request.body;
 	
 	  delete account._id;
-    account.user_id = credentials.user_token;
+    account.user_id = credentials.uuid;
     account.created_date = new Date();
   
     accountsCollection
@@ -74,7 +74,7 @@ exports.update = function(request, response)
 	const credentials = credentialHelper.getCredentialsFromAuth(request);
   
   usersCollection
-  .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
+  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
   {
     if (err || !data)
     {
@@ -86,10 +86,10 @@ exports.update = function(request, response)
     
 	  var account = request.body;
 	  delete account._id;
-	  account.user_id = credentials.user_token;
+	  account.user_id = credentials.uuid;
 
     accountsCollection
-    .updateOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, { $set: account }, function(err, data)
+    .updateOne({_id: new ObjectID(account_id), user_id: credentials.uuid}, { $set: account }, function(err, data)
       {
         if (err)
         {
@@ -109,7 +109,7 @@ exports.remove = function(request, response)
 	const credentials = credentialHelper.getCredentialsFromAuth(request);
   
   usersCollection
-  .findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
+  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
   {
     if (err || !data)
     {
@@ -120,7 +120,7 @@ exports.remove = function(request, response)
     var account_id = request.params.account_id;
     
     accountsCollection
-	.deleteOne({_id: new ObjectID(account_id), user_id: credentials.user_token}, function(err, result)
+	.deleteOne({_id: new ObjectID(account_id), user_id: credentials.uuid}, function(err, result)
     {
       if (err)
       {
