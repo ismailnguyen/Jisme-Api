@@ -6,73 +6,82 @@ const {
     remove
 } = require('../../../controllers/accountController')
 
-exports.handler = async function (event, context) {
+const accounts_get = async function (request) {
     // Check path if it contains an account Id
-    const pathSplit = event.path.split('accounts/');
+    const pathSplit = request.path.split('accounts/');
     if (pathSplit.length > 0) {
         const accountId = pathSplit[1];
 
-        if (event.httpMethod == 'GET') {
-            const { status, data } = await find(
-                event.headers,
-                {
-                    account_id: accountId
-                }
-            );
-    
-            return {
-                statusCode: status,
-                body: JSON.stringify(data)
-            };
-        }
-    
-        if (event.httpMethod == 'PUT') {
-            const { status, data } = await update(
-                event.headers,
-                {
-                    account_id: accountId
-                }, 
-                event.body
-            );
-    
-            return {
-                statusCode: status,
-                body: JSON.stringify(data)
-            };
-        }
+        const { status, data } = await find(
+            request.headers,
+            {
+                account_id: accountId
+            }
+        );
 
-        if (event.httpMethod == 'DELETE') {
-            const { status, data } = await remove(
-                event.headers,
-                {
-                    account_id: accountId
-                }
-            );
-    
-            return {
-                statusCode: status,
-                body: JSON.stringify(data)
-            };
-        }
+        return {
+            statusCode: status,
+            body: JSON.stringify(data)
+        };
     }
 
     // If no account id found on path
-    if (event.httpMethod == 'GET') {
-        const { status, data } = await findAll(event.headers);
+    const { status, data } = await findAll(request.headers);
 
-		return {
-            statusCode: status,
-            body: JSON.stringify(data)
-        };
-    }
+    return {
+        statusCode: status,
+        body: JSON.stringify(data)
+    };
+}
 
-    if (event.httpMethod == 'POST') {
-        const { status, data } = await create(event.headers, event.body);
+const accounts_post = async function (request) {
+    const { status, data } = await create(request.headers, request.body);
 
-		return {
-            statusCode: status,
-            body: JSON.stringify(data)
-        };
+    return {
+        statusCode: status,
+        body: JSON.stringify(data)
+    };
+}
+
+const accounts_put = async function (request) {
+    const { status, data } = await update(
+        request.headers,
+        {
+            account_id: accountId
+        }, 
+        request.body
+    );
+
+    return {
+        statusCode: status,
+        body: JSON.stringify(data)
+    };
+}
+
+const accounts_delete = async function (request) {
+    const { status, data } = await remove(
+        request.headers,
+        {
+            account_id: accountId
+        }
+    );
+
+    return {
+        statusCode: status,
+        body: JSON.stringify(data)
+    };
+}
+
+exports.handler = async function (event, context) {
+    const actions = {
+        'GET': accounts_get,
+        'POST': accounts_post,
+        'PUT': accounts_put,
+        'DELETE': accounts_delete
+    };
+
+    if (event.httpMethod in actions) {
+        return await actions[event.httpMethod](event);
     }
 
     return {
