@@ -1,134 +1,127 @@
-const errorHandler = require('../helpers/errorHandler.js');
-const credentialHelper = require('../helpers/credentialHelper.js');
+const service = require('../services/accountService.js');
+const { verifyToken } = require('../helpers/credentialHelper.js');
+const { throwError } = require('../helpers/errorHandler.js');
 
-var ObjectID = require('mongodb').ObjectID;
+const find = async function({ authorization }, { account_id }) {
+	try {
+		const { uuid } = await verifyToken(authorization);
 
-exports.findAll = function(request, response)
-{
- const usersCollection = request.app.locals.usersCollection;
- const accountsCollection = request.app.locals.accountsCollection;
- const credentials = credentialHelper.getCredentialsFromAuth(request);
+		try {
+			const account = await service.findOne({
+				accountId: account_id,
+				user_id: uuid
+			});
 
-  usersCollection
-  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
-  {
-    if (err || !data)
-    {
-      let message = err ? err.message : 'Error while fetching user to get accounts';
-      return errorHandler.handleError(response, message, "No user found");
-    }
-
-    accountsCollection
-	.find({user_id: credentials.uuid}).toArray(function(err, data)
-    {
-      if (err)
-      {
-        let message = err ? err.message : 'Error';
-        return errorHandler.handleError(response, message, "Failed to get accounts.");
-      }
-  
-      response.status(200).json(data);
-    });
-  });
+			return {
+				status: 200,
+				data: account
+			};
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
 }
 
-exports.create = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	const accountsCollection = request.app.locals.accountsCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(request);
+const findAll = async function({ authorization }) {
+	try {
+		const { uuid } = await verifyToken(authorization);
 
-  usersCollection
-  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
-  {
-    if (err || !data)
-    {
-      let message = err ? err.message : 'Error while fetching user to add account';
-      return errorHandler.handleError(response, message, "No user found");
-    }
+		try {
+			const accounts = await service.findAll({
+				user_id: uuid
+			});
 
-    var account = request.body;
-	
-	  delete account._id;
-    account.user_id = credentials.uuid;
-    account.created_date = new Date();
-  
-    accountsCollection
-    .insertOne(account, function(err, data)
-      {
-        if (err)
-        {
-          let message = err ? err.message : 'Error while adding account';
-          return errorHandler.handleError(response, message, "Failed to add new account.");
-        }
-    
-        response.status(201).json(data.ops[0]);
-      });
-  });
+			return {
+				status: 200,
+				data: accounts
+			};
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
 }
 
-exports.update = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	const accountsCollection = request.app.locals.accountsCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(request);
-  
-  usersCollection
-  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
-  {
-    if (err || !data)
-    {
-      let message = err ? err.message : 'Error while fetching user to update account';
-      return errorHandler.handleError(response, message, "No user found");
-    }
+const create = async function({ authorization }, accountToCreate) {
+	try {
+		const { uuid } = await verifyToken(authorization);
 
-    var account_id = request.params.account_id;
-    
-	  var account = request.body;
-	  delete account._id;
-	  account.user_id = credentials.uuid;
+		try {
+			const createdAccount = await service.create({
+				accountToCreate: accountToCreate,
+				user_id: uuid
+			});
 
-    accountsCollection
-    .updateOne({_id: new ObjectID(account_id), user_id: credentials.uuid}, { $set: account }, function(err, data)
-      {
-        if (err)
-        {
-          let message = err ? err.message : 'Error while updating account';
-          return errorHandler.handleError(response, message, "Failed to update account");
-        }
-      
-        response.status(200).end();
-      });
-    });
+			return {
+				status: 201,
+				data: createdAccount
+			};
+		} catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
 }
 
-exports.remove = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	const accountsCollection = request.app.locals.accountsCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(request);
-  
-  usersCollection
-  .findOne({email: credentials.email, uuid: credentials.uuid}, function(err, data)
-  {
-    if (err || !data)
-    {
-      let message = err ? err.message : 'Error while fetching user to delete account';
-      return errorHandler.handleError(response, message, "No user found");
-    }
+const update = async function({ authorization }, { account_id }, accountNewValue) {
+	try {
+		const { uuid } = await verifyToken(authorization);
 
-    var account_id = request.params.account_id;
-    
-    accountsCollection
-	.deleteOne({_id: new ObjectID(account_id), user_id: credentials.uuid}, function(err, result)
-    {
-      if (err)
-      {
-        let message = err ? err.message : 'Error while deleting account';
-        return errorHandler.handleError(response, message, "Failed to delete account");
-      }
-      
-      response.status(204).end();
-    });
-  });
+		try {
+			const updatedAccount = await service.update({
+				accountIdToUpdate: account_id,
+				accountNewValue: accountNewValue,
+				user_id: uuid
+			});
+
+			return {
+				status: 201,
+				data: updatedAccount
+			};
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
 }
+
+const remove = async function({ authorization }, { account_id }) {
+	try {
+		const { uuid } = await verifyToken(authorization);
+
+		try {
+			await service.remove({
+				accountIdToRemove: account_id,
+				user_id: uuid
+			});
+
+			response.status(204).json({
+				_id: account_id
+			});
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
+exports.find = find;
+exports.findAll = findAll;
+exports.create = create;
+exports.update = update;
+exports.remove = remove;

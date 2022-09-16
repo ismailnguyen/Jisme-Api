@@ -1,17 +1,37 @@
 'use strict';
 
 module.exports = function (app) {
-	const userController = require('../controllers/userController.js');
+	const controller = require('../controllers/userController.js');
 	
-	app.route('/users/login')
-		.post(userController.login);
-		
-	app.route('/users/register')
-		.post(userController.register);
-		
-	app.route('/users/:user_id')
-		.put(userController.update);
-		
-	app.route('/users/:user_id')
-		.get(userController.lastUpdateDate);
+	app
+	.route('/users/login')
+	.post(async (request, response) => {
+		const { status, data } = await controller.login(request.body);
+
+		response.status(status).json(data);
+	});
+
+	app
+	.route('/users/register')
+	.post(async (request, response) => {
+		const { status, data } = await controller.register(request.body);
+
+		response.status(status).json(data);
+	});
+
+	app
+	.route('/users/')
+	.put(async (request, response) => {
+		const { status, data } = await controller.update(request.headers);
+
+		response.status(status).json(data);
+	});
+
+	app
+	.route('/users/')
+	.get(async (request, response) => {
+		const { status, data } = await controller.lastUpdateDate(request.headers);
+
+		response.status(status).json(data);
+	});
 }

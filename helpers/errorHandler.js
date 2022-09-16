@@ -1,15 +1,23 @@
-// Generic error handler used by all endpoints.
-exports.handleError = function(response, reason, message, code)
-{
-  console.error('ERROR: ' + message + '(' + reason + ')');
-
-  return response
-		.status(code || 500)
-		.json(
-			{
-				"error": {
-					"message": message,
-					"reason": reason
-				}
-			});
+exports.throwError = function({ reason, message, code }) {
+	console.error('ERROR: ' + message + '(' + reason + ')');
+  
+	return {
+		status: code || 500,
+		data: {
+			error: {
+				message: message,
+				reason: reason ? reason.message : 'Error'
+			}
+		}
+	}
 }
+
+exports.generateError = function(reason, message, code) {
+	return {
+		reason: reason,
+		message: message,
+		errorCode: code
+	};
+  }
+  
+  

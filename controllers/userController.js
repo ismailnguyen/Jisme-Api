@@ -1,163 +1,94 @@
-const sha256 = require('sha256');
-const errorHandler = require('../helpers/errorHandler.js');
-const credentialHelper = require('../helpers/credentialHelper.js');
 
-var ObjectID = require('mongodb').ObjectID;
+const userService = require('../services/userService.js');
+const { verifyToken } = require('../helpers/credentialHelper.js');
+const { throwError } = require('../helpers/errorHandler.js');
 
-exports.login = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	let user = request.body;
-
-	if (user.email == '' || user.password == '')
-	{
-		return errorHandler.handleError(response, "Invalid user input", "Must provide an email and password.", 400);
-	}
-
-	let encryptedPassword = sha256(user.password);
-
-	usersCollection
-	.findOne({email: user.email, password: encryptedPassword}, function(err, data)
-	{
-		if (err)
-		{
-			let message = err ? err.message : 'Error';
-			return errorHandler.handleError(response, message, "Failed to find user");
-		}
-
-		if (!data)
-		{
-			return errorHandler.handleError(response, "No user found", "Failed to find user", 404);
-		}
-
-		let loggedUser =
-		{
-			_id: data._id,
-			email: data.email,
-			created_date: data.created_date,
-			token: data.token,
-			last_update_date: data.last_update_date,
-			avatarUrl: data.avatarUrl
+const login = async function({ email, password }) {
+	try {
+		const user = await userService.login(email, password);
+	
+		return {
+			status: 200,
+			data: user
 		};
-
-		response.status(200).json(loggedUser);
-	});
+	}
+	catch (error) {
+		return throwError(error);
+	}
 }
 
-exports.register = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	var user = request.body;
-	user.created_date = new Date();
-
-	if (user.email == '' || user.password == '')
-	{
-		return errorHandler.handleError(response, "Invalid user input", "Must provide an email and password.", 400);
+const register = async function({ email, password }) {
+	try {
+		const user = await userService.register(email, password);
+	
+		return {
+			status: 201,
+			data: user
+		};
 	}
+	catch (error) {
+		return throwError(error);
+	}
+}
 
-	// Encrypt user password with SHA256 algorithm
-	user.password = sha256(user.password);
+const update = async function({ authorization }) {
+	try {
+		const { email, uuid } = await verifyToken(authorization);
 
-	usersCollection
-	.findOne({email: user.email, password: user.password}, function(err, data)
-	{
-		if (err)
-		{
-			let message = err ? err.message : 'Error';
-			return errorHandler.handleError(response, message, "User already exists");
-		}
+		try {
+			const updatedUser = await userService.update(
+				{
+					email: email,
+					uuid: uuid,
+				},
+				{
+					password: request.body.password,
+					last_update_date: new Date(), // Update last update date at each update
+					avatarUrl: request.body.avatarUrl
+				}
+			);
 
-		if (data)
-		{
-			return errorHandler.handleError(response, "User found", "User already exists", 403);
-		}
-
-		// Generate unique token for user
-		user.token = sha256(user.email + user.password);
-
-		usersCollection
-		.insertOne(user, function(err, data) 
-		{
-			if (err)
-			{
-				let message = err ? err.message : 'Error';
-				return errorHandler.handleError(response, message, "Failed to create new user.");
-			} 
-
-			let registeredUser =
-			{
-				_id: data.ops[0]._id,
-				email: data.ops[0].email,
-				created_date: data.ops[0].created_date,
-				last_update_date: data.ops[0].last_update_date,
-				avatarUrl: data.ops[0].avatarUrl,
-				token: data.ops[0].token
+			return {
+				status: 200,
+				data: updatedUser
 			};
-
-			response.status(201).json(registeredUser);
-		});
-	});
-}
-
-exports.update = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(request);
-
-	usersCollection
-	.findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
-	{
-		if (err || !data)
-		{
-			let message = err ? err.message : 'Error while fetching user to update';
-			return errorHandler.handleError(response, message, "No user found");
 		}
-
-		var user_id = request.params.user_id;
-
-		var user =
-		{
-			email: credentials.email,
-			password: request.body.password || data.password,
-			created_date: data.created_date,
-			token: credentials.user_token,
-			last_update_date: request.body.last_update_date || new Date(),
-			avatarUrl: request.body.avatarUrl || data.avatarUrl
-		};
-
-		usersCollection
-		.updateOne({_id: new ObjectID(user_id), email: credentials.email, token: credentials.user_token}, { $set: user }, function(err, data)
-		{
-			if (err)
-			{
-				let message = err ? err.message : 'Error while updating user';
-				return errorHandler.handleError(response, message, "Failed to update user");
-			}
-
-			response.status(200).end();
-		});
-	});
-}
-
-exports.lastUpdateDate = function(request, response)
-{
-	const usersCollection = request.app.locals.usersCollection;
-	const credentials = credentialHelper.getCredentialsFromAuth(request);
-
-	usersCollection
-	.findOne({email: credentials.email, token: credentials.user_token}, function(err, data)
-	{
-		if (err || !data)
-		{
-			let message = err ? err.message : 'Error while fetching user to find';
-			return errorHandler.handleError(response, message, "No user found");
+		catch(error) {
+			return throwError(error);
 		}
-
-		var user =
-		{
-			last_update_date: data.last_update_date
-		};
-
-		response.status(200).json(user);
-	});
+	}
+	catch (error) {
+		return throwError(error);
+	}
 }
+
+const lastUpdateDate = async function({ authorization }) {
+	try {
+		const { email, uuid } = await verifyToken(authorization);
+
+		try {
+			const lastUpdateDate = await userService.lastUpdateDate(
+				{
+					email: email,
+					uuid: uuid,
+				}
+			);
+
+			return {
+				status: 200,
+				data: lastUpdateDate
+			};
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
+exports.login = login;
+exports.register = register;
+exports.update = update;
+exports.lastUpdateDate = lastUpdateDate;

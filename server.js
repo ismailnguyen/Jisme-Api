@@ -16,12 +16,6 @@ exports.init = function (routes)
 	});
 }
 
-exports.storeDbCollections = function (app, dbConnection)
-{
-	app.locals.usersCollection = dbConnection.collection('users');
-	app.locals.accountsCollection = dbConnection.collection('accounts');
-}
-
 exports.start = function (app)
 {
 	app.listen(port, () => console.info(`App now running on port ${port}`));
