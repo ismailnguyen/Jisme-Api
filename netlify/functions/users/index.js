@@ -8,7 +8,10 @@ const {
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Origin, Authorization, X-Requested-With, Content-Type, Accept',
-    'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Methods': '*',
+    'Access-Control-Max-Age': '2592000',
+    'Access-Control-Allow-Credentials': 'true',
 }
 
 const cors_options = async function (request) {
