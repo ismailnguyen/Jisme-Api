@@ -25,10 +25,9 @@ const users_put = async function ({ headers }) {
 
 const users_post = async function ({ path, body }) {
     // Check path if it contains an action
-    const pathSplit = path.split('users/');
-    if (pathSplit.length > 0) {
-        const action = pathSplit[1];
+    const action = path.split('users/')[1];
 
+    if (action) {
         if (action === 'login') {
             const { status, data } = await login(JSON.parse(body));
 

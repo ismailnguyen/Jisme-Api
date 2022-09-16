@@ -8,10 +8,9 @@ const {
 
 const accounts_get = async function (request) {
     // Check path if it contains an account Id
-    const pathSplit = request.path.split('accounts/');
-    if (pathSplit.length > 0) {
-        const accountId = pathSplit[1];
+    const accountId = request.path.split('accounts/')[1];
 
+    if (accountId) {
         const { status, data } = await find(
             request.headers,
             {
