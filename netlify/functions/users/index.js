@@ -33,6 +33,9 @@ const users_post = async function ({ path, body }) {
 
             return {
                 statusCode: status,
+                headers: {
+                    "Access-Control-Allow-Origin": "*", // Allow from anywhere 
+                },
                 body: JSON.stringify(data)
             };
         }
