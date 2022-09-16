@@ -6,6 +6,18 @@ const {
     remove
 } = require('../../../controllers/accountController')
 
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
+}
+
+const cors_options = async function (request) {
+    return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+    }
+}
+
 const accounts_get = async function (request) {
     // Check path if it contains an account Id
     const accountId = request.path.split('accounts/')[1];
@@ -20,6 +32,7 @@ const accounts_get = async function (request) {
 
         return {
             statusCode: status,
+            ...CORS_HEADERS,
             body: JSON.stringify(data)
         };
     }
@@ -29,6 +42,7 @@ const accounts_get = async function (request) {
 
     return {
         statusCode: status,
+        ...CORS_HEADERS,
         body: JSON.stringify(data)
     };
 }
@@ -38,6 +52,7 @@ const accounts_post = async function (request) {
 
     return {
         statusCode: status,
+        ...CORS_HEADERS,
         body: JSON.stringify(data)
     };
 }
@@ -53,6 +68,7 @@ const accounts_put = async function (request) {
 
     return {
         statusCode: status,
+        ...CORS_HEADERS,
         body: JSON.stringify(data)
     };
 }
@@ -67,6 +83,7 @@ const accounts_delete = async function (request) {
 
     return {
         statusCode: status,
+        ...CORS_HEADERS,
         body: JSON.stringify(data)
     };
 }
@@ -76,7 +93,8 @@ exports.handler = async function (event, context) {
         'GET': accounts_get,
         'POST': accounts_post,
         'PUT': accounts_put,
-        'DELETE': accounts_delete
+        'DELETE': accounts_delete,
+        'OPTIONS': cors_options
     };
 
     if (event.httpMethod in actions) {
@@ -85,6 +103,7 @@ exports.handler = async function (event, context) {
 
     return {
         statusCode: 405,
+        ...CORS_HEADERS,
         body: 'Method not allowed'
     }
 };
