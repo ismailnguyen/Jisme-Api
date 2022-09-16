@@ -13,7 +13,7 @@ const CORS_HEADERS = {
 
 const cors_options = async function (request) {
     return {
-        statusCode: 200,
+        statusCode: 204,
         headers: CORS_HEADERS,
     }
 }
@@ -119,7 +119,7 @@ exports.handler = async function (event, context) {
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
             };
             return {
-                statusCode: 200, // <-- Must be 200 otherwise pre-flight call fails,
+                statusCode: 204, // <-- Must be 204 otherwise pre-flight call fails,
                 headers,
                 body: 'This was a preflight call!'
             }
