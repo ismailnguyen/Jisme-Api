@@ -5,11 +5,25 @@ const {
     lastUpdateDate
 } = require('../../../controllers/userController')
 
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Origin, Authorization, X-Requested-With, Content-Type, Accept',
+    'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE'
+}
+
+const cors_options = async function (request) {
+    return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+    }
+}
+
 const users_get = async function (request) {
     const { status, data } = await lastUpdateDate(request.headers);
 
     return {
         statusCode: status,
+        ...CORS_HEADERS,
         body: JSON.stringify(data)
     };
 }
@@ -19,6 +33,7 @@ const users_put = async function ({ headers }) {
 
     return {
         statusCode: status,
+        ...CORS_HEADERS,
         body: JSON.stringify(data)
     };
 }
@@ -33,9 +48,7 @@ const users_post = async function ({ path, body }) {
 
             return {
                 statusCode: status,
-                headers: {
-                    "Access-Control-Allow-Origin": "*", // Allow from anywhere 
-                },
+                ...CORS_HEADERS,
                 body: JSON.stringify(data)
             };
         }
@@ -45,6 +58,7 @@ const users_post = async function ({ path, body }) {
 
             return {
                 statusCode: status,
+                ...CORS_HEADERS,
                 body: JSON.stringify(data)
             };
         }
@@ -52,15 +66,17 @@ const users_post = async function ({ path, body }) {
 
     return {
         statusCode: 404,
+        ...CORS_HEADERS,
         body: 'Action not found'
     }
 }
 
-exports.handler = async function (event, context) {
+exports.handler = async function (event, context) {  
     const actions = {
         'GET': users_get,
         'PUT': users_put,
-        'POST': users_post
+        'POST': users_post,
+        'OPTIONS': cors_options
     };
 
     if (event.httpMethod in actions) {
@@ -69,6 +85,7 @@ exports.handler = async function (event, context) {
 
     return {
         statusCode: 405,
+        ...CORS_HEADERS,
         body: 'Method not allowed'
     }
 };
