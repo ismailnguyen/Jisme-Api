@@ -7,19 +7,19 @@ const {
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Origin, Authorization, X-Requested-With, Content-Type, Accept',
+    'Access-Control-Allow-Headers': ', Content-Type',
     'Content-Type': 'application/json',
     'Access-Control-Allow-Methods': '*',
     'Access-Control-Max-Age': '2592000',
-    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Credentials': 'true'
 }
 
 const cors_options = function () {
     return {
         statusCode: 200,
-        headers: CORS_HEADERS,
-        body: 'This is a preflight call!'
-    }
+        CORS_HEADERS,
+        body: JSON.stringify({ message: "Successful preflight call." }),
+      };
 }
 
 const users_get = async function ({ headers }) {
