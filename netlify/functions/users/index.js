@@ -14,10 +14,11 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Credentials': 'true',
 }
 
-const cors_options = async function (request) {
+const cors_options = function () {
     return {
-        statusCode: 204,
+        statusCode: 200,
         headers: CORS_HEADERS,
+        body: 'This is a preflight call!'
     }
 }
 
@@ -74,12 +75,15 @@ const users_post = async function ({ path, body }) {
     }
 }
 
-exports.handler = async function (event, context) {  
+exports.handler = async function (event, context) { 
+    if (event.httpMethod === 'OPTIONS') {
+        return cors_options();
+    }
+
     const actions = {
         'GET': users_get,
         'PUT': users_put,
-        'POST': users_post,
-        'OPTIONS': cors_options
+        'POST': users_post
     };
 
     if (event.httpMethod in actions) {
