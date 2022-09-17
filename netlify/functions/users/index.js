@@ -31,8 +31,8 @@ const users_get = async function ({ headers }) {
     };
 }
 
-const users_put = async function ({ headers }) {
-    const { status, data } = await update(headers);
+const users_put = async function ({ headers, body }) {
+    const { status, data } = await update(headers, body);
 
     return {
         statusCode: status,

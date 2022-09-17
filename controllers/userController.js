@@ -31,7 +31,7 @@ const register = async function({ email, password }) {
 	}
 }
 
-const update = async function({ authorization }) {
+const update = async function({ authorization }, payload) {
 	try {
 		const { email, uuid } = await verifyToken(authorization);
 
@@ -42,9 +42,9 @@ const update = async function({ authorization }) {
 					uuid: uuid,
 				},
 				{
-					password: request.body.password,
+					password: payload.password,
 					last_update_date: new Date(), // Update last update date at each update
-					avatarUrl: request.body.avatarUrl
+					avatarUrl: payload.avatarUrl
 				}
 			);
 
