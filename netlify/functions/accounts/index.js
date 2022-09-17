@@ -19,9 +19,9 @@ const cors_options = async function (request) {
     }
 }
 
-const accounts_get = async function ({ headers }) {
+const accounts_get = async function ({ path, headers }) {
     // Check path if it contains an account Id
-    const accountId = request.path.split('accounts/')[1];
+    const accountId = path.split('accounts/')[1];
 
     if (accountId) {
         const { status, data } = await find(
@@ -49,7 +49,7 @@ const accounts_get = async function ({ headers }) {
 }
 
 const accounts_post = async function ({ headers, body }) {
-    const { status, data } = await create(headers, body);
+    const { status, data } = await create(headers, JSON.parse(body));
 
     return {
         statusCode: status,
@@ -58,13 +58,25 @@ const accounts_post = async function ({ headers, body }) {
     };
 }
 
-const accounts_put = async function ({ headers, body }) {
+const accounts_put = async function ({ path, headers, body }) {
+    // Check path if it contains an account Id
+    const accountId = path.split('accounts/')[1];
+
+    if (!accountId) {
+        return {
+            statusCode: 40,
+            ...CORS_HEADERS,
+            body: 'bad request, missing account id'
+        };
+        
+    }
+
     const { status, data } = await update(
         headers,
         {
             account_id: accountId
         }, 
-        body
+        JSON.parse(body)
     );
 
     return {
@@ -74,7 +86,18 @@ const accounts_put = async function ({ headers, body }) {
     };
 }
 
-const accounts_delete = async function ({ headers }) {
+const accounts_delete = async function ({ path, headers }) {
+    // Check path if it contains an account Id
+    const accountId = path.split('accounts/')[1];
+
+    if (!accountId) {
+        return {
+            statusCode: 40,
+            ...CORS_HEADERS,
+            body: 'bad request, missing account id'
+        };
+    }
+
     const { status, data } = await remove(
         headers,
         {
