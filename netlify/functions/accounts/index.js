@@ -19,13 +19,13 @@ const cors_options = async function (request) {
     }
 }
 
-const accounts_get = async function (request) {
+const accounts_get = async function ({ headers }) {
     // Check path if it contains an account Id
     const accountId = request.path.split('accounts/')[1];
 
     if (accountId) {
         const { status, data } = await find(
-            request.headers,
+            headers,
             {
                 account_id: accountId
             }
@@ -39,7 +39,7 @@ const accounts_get = async function (request) {
     }
 
     // If no account id found on path
-    const { status, data } = await findAll(request.headers);
+    const { status, data } = await findAll(headers);
 
     return {
         statusCode: status,
@@ -48,8 +48,8 @@ const accounts_get = async function (request) {
     };
 }
 
-const accounts_post = async function (request) {
-    const { status, data } = await create(request.headers, request.body);
+const accounts_post = async function ({ headers, body }) {
+    const { status, data } = await create(headers, body);
 
     return {
         statusCode: status,
@@ -58,13 +58,13 @@ const accounts_post = async function (request) {
     };
 }
 
-const accounts_put = async function (request) {
+const accounts_put = async function ({ headers, body }) {
     const { status, data } = await update(
-        request.headers,
+        headers,
         {
             account_id: accountId
         }, 
-        request.body
+        body
     );
 
     return {
@@ -74,9 +74,9 @@ const accounts_put = async function (request) {
     };
 }
 
-const accounts_delete = async function (request) {
+const accounts_delete = async function ({ headers }) {
     const { status, data } = await remove(
-        request.headers,
+        headers,
         {
             account_id: accountId
         }
