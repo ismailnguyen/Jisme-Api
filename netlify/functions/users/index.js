@@ -18,8 +18,7 @@ app.use(function(req, res, next) {
 const cors_options = function () {
     return {
         statusCode: 204,
-        CORS_HEADERS,
-        body: JSON.stringify({ message: "Successful preflight call." }),
+        CORS_HEADERS
       };
 }
 
