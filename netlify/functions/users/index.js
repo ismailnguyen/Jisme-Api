@@ -7,16 +7,17 @@ const {
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': ', Content-Type',
+    'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
     'Content-Type': 'application/json',
     'Access-Control-Allow-Methods': '*',
     'Access-Control-Max-Age': '2592000',
-    'Access-Control-Allow-Credentials': 'true'
+    'Access-Control-Allow-Credentials': true
 }
 
+app.use(function(req, res, next) {
 const cors_options = function () {
     return {
-        statusCode: 200,
+        statusCode: 204,
         CORS_HEADERS,
         body: JSON.stringify({ message: "Successful preflight call." }),
       };
