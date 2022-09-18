@@ -11,7 +11,7 @@ const CORS_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Methods': '*',
     'Access-Control-Max-Age': '2592000',
-    'Access-Control-Allow-Credentials': true
+    'Access-Control-Allow-Credentials': 'true'
 }
 
 app.use(function(req, res, next) {
