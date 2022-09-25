@@ -7,18 +7,15 @@ const {
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Methods': '*',
-    'Access-Control-Max-Age': '2592000',
-    'Access-Control-Allow-Credentials': true
+    'Access-Control-Allow-Headers': 'Origin, Authorization, X-Requested-With, Content-Type, Accept',
+    'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS'
 }
 
-const cors_options = function () {
+const cors_options = async function (request) {
     return {
-        statusCode: 204,
-        CORS_HEADERS
-      };
+        statusCode: 200,
+        headers: CORS_HEADERS,
+    }
 }
 
 const users_get = async function ({ headers }) {
@@ -75,14 +72,11 @@ const users_post = async function ({ path, body }) {
 }
 
 exports.handler = async function (event, context) { 
-    if (event.httpMethod === 'OPTIONS') {
-        return cors_options();
-    }
-
     const actions = {
         'GET': users_get,
         'PUT': users_put,
-        'POST': users_post
+        'POST': users_post,
+        'OPTIONS': cors_options
     };
 
     if (event.httpMethod in actions) {

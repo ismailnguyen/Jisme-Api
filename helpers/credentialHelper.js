@@ -32,6 +32,10 @@ exports.verifyToken = async function (authorization) {
     };
   }
   catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw generateError('Token expired', 'Expired at ' + error.expiredAt, 401);
+    }
+
 		throw generateError('Error while verifying token (credentialHelper.verifyToken)', error.message, 400);
   }
 }
