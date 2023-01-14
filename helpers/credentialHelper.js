@@ -2,14 +2,15 @@ const { sign, verify } = require('jsonwebtoken');
 const { token_master_secret } = require('../config.js');
 const { generateError } = require('../helpers/errorHandler.js');
 
-exports.generateAccessToken = function ({ email, uuid}) {
+exports.generateAccessToken = function ({ email, uuid}, extendedExpiration) {
   return sign(
     {
-      data: `${email}:${uuid}`
+      email: email,
+      uuid: uuid
     },
     token_master_secret,
     { 
-      expiresIn: '72h'
+      expiresIn: extendedExpiration ? '90 days' : '72h'
     }
   );
 }
@@ -22,10 +23,8 @@ exports.verifyToken = async function (authorization) {
   }
 
   try {
-    const credentials = await verify(accessToken, token_master_secret);
+    const { email, uuid} = await verify(accessToken, token_master_secret);
 
-    const [email, uuid] = credentials.data.split(':');
-    
     return {
       email: email,
       uuid: uuid 

@@ -47,7 +47,7 @@ const register = async function(email, password) {
     }
 }
 
-const login = async function(email, password) {
+const login = async function(email, password, isExtendedSession) {
     if (!email || !password) {
 		throw generateError('Invalid user input', 'Must provide an email and password.', 400);
     }
@@ -69,7 +69,7 @@ const login = async function(email, password) {
         let user = foundUser;
 
         // Regenerate access token
-        user.token = generateAccessToken(user);
+        user.token = generateAccessToken(user, isExtendedSession);
 
         // Save new token on database
         return await update({ email: user.email, uuid: user.uuid }, user);

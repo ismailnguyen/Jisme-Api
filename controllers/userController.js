@@ -3,9 +3,9 @@ const userService = require('../services/userService.js');
 const { verifyToken } = require('../helpers/credentialHelper.js');
 const { throwError } = require('../helpers/errorHandler.js');
 
-const login = async function({ email, password }) {
+const login = async function({ email, password, extendSession }) {
 	try {
-		const user = await userService.login(email, password);
+		const user = await userService.login(email, password, extendSession);
 	
 		return {
 			status: 200,
