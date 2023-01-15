@@ -1,10 +1,14 @@
 const service = require('../services/accountService.js');
 const { verifyToken } = require('../helpers/credentialHelper.js');
-const { throwError } = require('../helpers/errorHandler.js');
+const { throwError, generateError } = require('../helpers/errorHandler.js');
 
 const find = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid } = await verifyToken(authorization);
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			const account = await service.findOne({
@@ -28,7 +32,11 @@ const find = async function({ authorization }, { account_id }) {
 
 const findAll = async function({ authorization }) {
 	try {
-		const { uuid } = await verifyToken(authorization);
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			const accounts = await service.findAll({
@@ -51,7 +59,11 @@ const findAll = async function({ authorization }) {
 
 const create = async function({ authorization }, accountToCreate) {
 	try {
-		const { uuid } = await verifyToken(authorization);
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			const createdAccount = await service.create({
@@ -74,7 +86,11 @@ const create = async function({ authorization }, accountToCreate) {
 
 const update = async function({ authorization }, { account_id }, accountNewValue) {
 	try {
-		const { uuid } = await verifyToken(authorization);
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			const updatedAccount = await service.update({
@@ -99,7 +115,11 @@ const update = async function({ authorization }, { account_id }, accountNewValue
 
 const remove = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid } = await verifyToken(authorization);
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			await service.remove({

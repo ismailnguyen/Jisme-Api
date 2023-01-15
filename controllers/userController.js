@@ -17,6 +17,27 @@ const login = async function({ email, password, extendSession }) {
 	}
 }
 
+const verifyMFA = async function ({ authorization }, { totpToken }) {
+	try {
+		const { email, uuid, extendedExpiration } = await verifyToken(authorization);
+
+		try {
+			const user = await userService.verifyMFA({ email, uuid }, extendedExpiration, totpToken);
+		
+			return {
+				status: 200,
+				data: user
+			};
+		}
+		catch (error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
 const register = async function({ email, password }) {
 	try {
 		const user = await userService.register(email, password);
@@ -33,7 +54,11 @@ const register = async function({ email, password }) {
 
 const update = async function({ authorization }, payload) {
 	try {
-		const { email, uuid } = await verifyToken(authorization);
+		const { email, uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			const updatedUser = await userService.update(
@@ -64,7 +89,11 @@ const update = async function({ authorization }, payload) {
 
 const lastUpdateDate = async function({ authorization }) {
 	try {
-		const { email, uuid } = await verifyToken(authorization);
+		const { email, uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
 
 		try {
 			const lastUpdateDate = await userService.lastUpdateDate(
@@ -89,6 +118,7 @@ const lastUpdateDate = async function({ authorization }) {
 }
 
 exports.login = login;
+exports.verifyMFA = verifyMFA;
 exports.register = register;
 exports.update = update;
 exports.lastUpdateDate = lastUpdateDate;

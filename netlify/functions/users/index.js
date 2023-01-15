@@ -1,5 +1,6 @@
 const {
     login,
+    verifyMFA,
     register,
     update,
     lastUpdateDate
@@ -38,13 +39,23 @@ const users_put = async function ({ headers, body }) {
     };
 }
 
-const users_post = async function ({ path, body }) {
+const users_post = async function ({ headers, path, body }) {
     // Check path if it contains an action
     const action = path.split('users/')[1];
 
     if (action) {
         if (action === 'login') {
             const { status, data } = await login(JSON.parse(body));
+
+            return {
+                statusCode: status,
+                ...CORS_HEADERS,
+                body: JSON.stringify(data)
+            };
+        }
+
+        if (action === 'verify-mfa') {
+            const { status, data } = await verifyMFA(headers, JSON.parse(body));
 
             return {
                 statusCode: status,
