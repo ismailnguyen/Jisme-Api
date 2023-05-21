@@ -1,5 +1,6 @@
 const {
     login,
+    loginWithPasskey,
     verifyMFA,
     register,
     update,
@@ -30,7 +31,7 @@ const users_get = async function ({ headers }) {
 }
 
 const users_put = async function ({ headers, body }) {
-    const { status, data } = await update(headers, body);
+    const { status, data } = await update(headers, JSON.parse(body));
 
     return {
         statusCode: status,
@@ -46,6 +47,16 @@ const users_post = async function ({ headers, path, body }) {
     if (action) {
         if (action === 'login') {
             const { status, data } = await login(JSON.parse(body));
+
+            return {
+                statusCode: status,
+                ...CORS_HEADERS,
+                body: JSON.stringify(data)
+            };
+        }
+
+        if (action === 'login-passkey') {
+            const { status, data } = await loginWithPasskey(JSON.parse(body));
 
             return {
                 statusCode: status,

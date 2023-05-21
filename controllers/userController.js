@@ -17,6 +17,20 @@ const login = async function({ email, password, extendSession }) {
 	}
 }
 
+const loginWithPasskey = async function (passkey) {
+	try {
+		const user = await userService.loginWithPasskey(passkey);
+	
+		return {
+			status: 200,
+			data: user
+		};
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
 const verifyMFA = async function ({ authorization }, { totpToken }) {
 	try {
 		const { email, uuid, extendedExpiration } = await verifyToken(authorization);
@@ -69,7 +83,8 @@ const update = async function({ authorization }, payload) {
 				{
 					password: payload.password,
 					last_update_date: new Date(), // Update last update date at each update
-					avatarUrl: payload.avatarUrl
+					avatarUrl: payload.avatarUrl,
+					passkeys: payload.passkeys
 				}
 			);
 
@@ -118,6 +133,7 @@ const lastUpdateDate = async function({ authorization }) {
 }
 
 exports.login = login;
+exports.loginWithPasskey = loginWithPasskey;
 exports.verifyMFA = verifyMFA;
 exports.register = register;
 exports.update = update;

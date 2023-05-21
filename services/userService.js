@@ -28,6 +28,7 @@ const register = async function(email, password) {
 		}
 
         let userToRegister = {
+            email: email,
             created_date: new Date().toISOString(),
             password: sha256(password), // Encrypt user password with SHA256 algorithm
             uuid: sha256(email + password), // Generate unique id for user
@@ -83,6 +84,39 @@ const login = async function(email, password, isExtendedSession) {
             avatarUrl: foundUser.avatarUrl,
             isMFARequired: foundUser.isMFAEnabled
         };
+    }
+    catch (error) {
+        throw generateError('User not found', error.message, 404);
+    }
+}
+
+const loginWithPasskey = async function(passkey) {
+    if (!passkey || !passkey.response || !passkey.response.userHandle) {
+		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
+    }
+
+    try {
+        const foundUser = await findOne({
+            query: { 
+                uuid: passkey.response.userHandle
+            }
+        });
+
+        if (!foundUser) {
+			throw generateError('Error', 'User not found', 404);
+		}
+
+        const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkey.id);
+
+        if (!isPasskeyMatching) {
+			throw generateError('Error', 'Invalid passkey', 404);
+        }
+
+        // Generate access token
+        foundUser.token = generateSignedAccessToken(foundUser, false);
+
+        // Save new token on database
+        return await update({ email: foundUser.email, uuid: foundUser.uuid }, foundUser);
     }
     catch (error) {
         throw generateError('User not found', error.message, 404);
@@ -149,7 +183,8 @@ const update = async function({ email, uuid }, payload) {
             token: payload.token || foundUser.token,
             // Update with new Date() only it's called directly from the controller
             last_update_date: payload.last_update_date || foundUser.last_update_date,
-            avatarUrl: payload.avatarUrl || foundUser.avatarUrl
+            avatarUrl: payload.avatarUrl || foundUser.avatarUrl,
+            passkeys: payload.passkeys || foundUser.passkeys
         };
         
         try {
@@ -168,7 +203,9 @@ const update = async function({ email, uuid }, payload) {
                 token: updatedUser.token,
                 last_update_date: updatedUser.last_update_date,
                 avatarUrl: updatedUser.avatarUrl,
-                isMFAEnabled: updatedUser.isMFAEnabled
+                isMFAEnabled: updatedUser.isMFAEnabled,
+                totp_secret: foundUser.totp_secret, // as this is not updated, it's only present in the first find request
+                passkeys: updatedUser.passkeys
             };
         }
         catch (error) {
@@ -208,6 +245,7 @@ const lastUpdateDate = async function({ email, uuid }) {
 
 exports.register = register;
 exports.login = login;
+exports.loginWithPasskey = loginWithPasskey;
 exports.verifyMFA = verifyMFA;
 exports.update = update;
 exports.lastUpdateDate = lastUpdateDate;
