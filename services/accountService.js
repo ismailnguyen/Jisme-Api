@@ -7,7 +7,6 @@ const findOne = async function({ accountId, user_id }) {
     }
 
     try {
-        
         const account = await repository.findOne({
             query: {
                 _id: accountId,
@@ -23,6 +22,30 @@ const findOne = async function({ accountId, user_id }) {
     }
     catch (error) {
         throw generateError('No account found', error.message, 404);
+    }
+}
+
+const findRecents = async function({ user_id }) {
+    if (!user_id) {
+		throw generateError('Invalid user', 'Must provide an user uuid.', 400);
+    }
+
+    try {
+        const accounts = await repository.findAll({
+            query: {
+                user_id: user_id
+            },
+            max: 10
+        });
+
+        if (!accounts) {
+			throw generateError('Error', 'No accounts found', 404);
+		}
+
+        return accounts;
+    }
+    catch (error) {
+        throw generateError('No accounts found', error.message, 404);
     }
 }
 
@@ -103,6 +126,7 @@ const remove = async function({ accountIdToRemove, user_id }) {
 }
 
 exports.findOne = findOne;
+exports.findRecents = findRecents;
 exports.findAll = findAll;
 exports.create = create;
 exports.update = update;

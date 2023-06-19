@@ -30,6 +30,33 @@ const find = async function({ authorization }, { account_id }) {
 	}
 }
 
+const findRecents  = async function({ authorization }) {
+	try {
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
+
+		try {
+			const accounts = await service.findRecents({
+				user_id: uuid
+			});
+
+			return {
+				status: 200,
+				data: accounts
+			};
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
 const findAll = async function({ authorization }) {
 	try {
 		const { uuid, mfaValid } = await verifyToken(authorization);
@@ -141,6 +168,7 @@ const remove = async function({ authorization }, { account_id }) {
 }
 
 exports.find = find;
+exports.findRecents = findRecents;
 exports.findAll = findAll;
 exports.create = create;
 exports.update = update;

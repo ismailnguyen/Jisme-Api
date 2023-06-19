@@ -9,11 +9,12 @@ const findOne = async function ({ query, fields }) {
     });
 }
 
-const findAll = async function ({ query, fields }) {
+const findAll = async function ({ query, fields, max }) {
     return await baseRepository.findAll(db_accounts_collection,
     {
         filter: query,
-        projection: fields
+        projection: fields,
+        limit: max
     });
 }
 

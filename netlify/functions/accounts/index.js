@@ -1,4 +1,5 @@
 const {
+    findRecents,
     findAll,
     create,
     find,
@@ -24,18 +25,28 @@ const accounts_get = async function ({ path, headers }) {
     const accountId = path.split('accounts/')[1];
 
     if (accountId) {
-        const { status, data } = await find(
-            headers,
-            {
-                account_id: accountId
-            }
-        );
+        if (accountId === 'recents/') {
+            const { status, data } = await findRecents(headers);
 
-        return {
-            statusCode: status,
-            ...CORS_HEADERS,
-            body: JSON.stringify(data)
-        };
+            return {
+                statusCode: status,
+                ...CORS_HEADERS,
+                body: JSON.stringify(data)
+            };
+        } else {
+            const { status, data } = await find(
+                headers,
+                {
+                    account_id: accountId
+                }
+            );
+    
+            return {
+                statusCode: status,
+                ...CORS_HEADERS,
+                body: JSON.stringify(data)
+            };
+        }
     }
 
     // If no account id found on path
