@@ -1,6 +1,6 @@
 [build]
   command = "echo no build command"
-  functions = "./functions"
+  functions = "netlify/functions"
   
 [[redirects]]
   from = "/func/*"
