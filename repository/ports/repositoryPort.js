@@ -2,7 +2,17 @@
 
 const { db_repository_type } = require('../../utils/config.js');
 
-const repository = require(`../adapters/${ db_repository_type }Adapter.js`);
+let repository = null;
+if (db_repository_type === 'db') {
+    repository = require('../adapters/dbAdapter.js');
+}
+else if (db_repository_type === 'file') {
+    repository = require('../adapters/apiAdapter.js');
+}
+
+// Unable to execute command netlify build with this dynamic requires,
+// That is why i had to explicitly require the respective adapter corresponding to the db_repository_type
+// const repository = require(`../adapters/${ db_repository_type }Adapter.js`);
 
 const findOne = async function (collection, { filter, projection }) {
     const response = await repository.sendQuery(collection, {
