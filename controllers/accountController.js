@@ -1,6 +1,9 @@
+'use strict';
+
 const service = require('../services/accountService.js');
-const { verifyToken } = require('../helpers/credentialHelper.js');
-const { throwError, generateError } = require('../helpers/errorHandler.js');
+const userService = require('../services/userService.js');
+const { verifyToken } = require('../utils/credentials.js');
+const { throwError, generateError } = require('../utils/errors.js');
 
 const find = async function({ authorization }, { account_id }) {
 	try {
@@ -57,7 +60,7 @@ const findRecents  = async function({ authorization }) {
 	}
 }
 
-const findAll = async function({ authorization }) {
+const findAll = async function({ authorization }, { limit, page }) {
 	try {
 		const { uuid, mfaValid } = await verifyToken(authorization);
 
@@ -65,19 +68,48 @@ const findAll = async function({ authorization }) {
 			throw generateError('Unauthorized', 'MFA not valid', 401);
 		}
 
+		const pageNumber = parseInt(page) || 0;
+		const limitPerPage = parseInt(limit) || 50;
+		const result = {};
+
+		let startIndex = pageNumber * limitPerPage;
+    	const endIndex = (pageNumber + 1) * limitPerPage;
+
 		try {
-			const accounts = await service.findAll({
+			result.totalAccounts = await service.count({
 				user_id: uuid
 			});
-
-			return {
-				status: 200,
-				data: accounts
-			};
 		}
 		catch(error) {
 			return throwError(error);
 		}
+
+		if (startIndex > 0) {
+			result.previous = {
+				pageNumber: pageNumber - 1,
+				limit: limitPerPage
+			};
+		}
+
+		if (endIndex < result.totalAccounts) {
+			result.next = {
+				pageNumber: pageNumber + 1,
+				limit: limitPerPage
+			};
+		}
+
+		result.data = await service.findAll({
+			user_id: uuid,
+			max: limitPerPage,
+			offset: startIndex
+		});
+
+		result.rowsPerPage = limitPerPage > result.totalAccounts ? result.totalAccounts : limitPerPage;
+
+		return {
+			status: 200,
+			data: result
+		};
 	}
 	catch (error) {
 		return throwError(error);
@@ -86,7 +118,7 @@ const findAll = async function({ authorization }) {
 
 const create = async function({ authorization }, accountToCreate) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, email, mfaValid } = await verifyToken(authorization);
 
 		if (!mfaValid) {
 			throw generateError('Unauthorized', 'MFA not valid', 401);
@@ -97,6 +129,10 @@ const create = async function({ authorization }, accountToCreate) {
 				accountToCreate: accountToCreate,
 				user_id: uuid
 			});
+
+			// Each time the user makes a change to their account
+			// we update the last updated date
+			await userService.updateLastUpdatedDate({ email, uuid });
 
 			return {
 				status: 201,
@@ -113,7 +149,7 @@ const create = async function({ authorization }, accountToCreate) {
 
 const update = async function({ authorization }, { account_id }, accountNewValue) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, email, mfaValid } = await verifyToken(authorization);
 
 		if (!mfaValid) {
 			throw generateError('Unauthorized', 'MFA not valid', 401);
@@ -125,6 +161,10 @@ const update = async function({ authorization }, { account_id }, accountNewValue
 				accountNewValue: accountNewValue,
 				user_id: uuid
 			});
+
+			// Each time the user makes a change to their account
+			// we update the last updated date
+			await userService.updateLastUpdatedDate({ email, uuid });
 
 			return {
 				status: 201,
@@ -142,7 +182,7 @@ const update = async function({ authorization }, { account_id }, accountNewValue
 
 const remove = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, email, mfaValid } = await verifyToken(authorization);
 
 		if (!mfaValid) {
 			throw generateError('Unauthorized', 'MFA not valid', 401);
@@ -154,9 +194,16 @@ const remove = async function({ authorization }, { account_id }) {
 				user_id: uuid
 			});
 
-			response.status(204).json({
-				_id: account_id
-			});
+			// Each time the user makes a change to their account
+			// we update the last updated date
+			await userService.updateLastUpdatedDate({ email, uuid });
+
+			return {
+				status: 204,
+				data: {
+					_id: account_id
+				}
+			};
 		}
 		catch(error) {
 			return throwError(error);
