@@ -1,11 +1,12 @@
+'use strict';
 
 const userService = require('../services/userService.js');
-const { verifyToken } = require('../helpers/credentialHelper.js');
-const { throwError } = require('../helpers/errorHandler.js');
+const { verifyToken } = require('../utils/credentials.js');
+const { throwError } = require('../utils/errors.js');
 
-const login = async function({ email, password, extendSession }) {
+const login = async function({ email, password }) {
 	try {
-		const user = await userService.login(email, password, extendSession);
+		const user = await userService.login(email, password);
 	
 		return {
 			status: 200,
@@ -31,12 +32,12 @@ const loginWithPasskey = async function (passkey) {
 	}
 }
 
-const verifyMFA = async function ({ authorization }, { totpToken }) {
+const verifyMFA = async function ({ authorization }, { totpToken, extendSession }) {
 	try {
-		const { email, uuid, extendedExpiration } = await verifyToken(authorization);
+		const { email, uuid } = await verifyToken(authorization);
 
 		try {
-			const user = await userService.verifyMFA({ email, uuid }, extendedExpiration, totpToken);
+			const user = await userService.verifyMFA({ email, uuid }, extendSession, totpToken);
 		
 			return {
 				status: 200,
@@ -102,7 +103,7 @@ const update = async function({ authorization }, payload) {
 	}
 }
 
-const lastUpdateDate = async function({ authorization }) {
+const getInformation = async function({ authorization }) {
 	try {
 		const { email, uuid, mfaValid } = await verifyToken(authorization);
 
@@ -111,7 +112,7 @@ const lastUpdateDate = async function({ authorization }) {
 		}
 
 		try {
-			const lastUpdateDate = await userService.lastUpdateDate(
+			const getInformation = await userService.getInformation(
 				{
 					email: email,
 					uuid: uuid,
@@ -120,7 +121,7 @@ const lastUpdateDate = async function({ authorization }) {
 
 			return {
 				status: 200,
-				data: lastUpdateDate
+				data: getInformation
 			};
 		}
 		catch(error) {
@@ -137,4 +138,4 @@ exports.loginWithPasskey = loginWithPasskey;
 exports.verifyMFA = verifyMFA;
 exports.register = register;
 exports.update = update;
-exports.lastUpdateDate = lastUpdateDate;
+exports.getInformation = getInformation;
