@@ -1,10 +1,12 @@
+'use strict';
+
 const {
     login,
     loginWithPasskey,
     verifyMFA,
     register,
     update,
-    lastUpdateDate
+    getInformation
 } = require('../../../controllers/userController')
 
 const CORS_HEADERS = {
@@ -21,7 +23,7 @@ const cors_options = async function (request) {
 }
 
 const users_get = async function ({ headers }) {
-    const { status, data } = await lastUpdateDate(headers);
+    const { status, data } = await getInformation(headers);
 
     return {
         statusCode: status,

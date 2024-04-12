@@ -1,15 +1,12 @@
+'use strict';
+
 const server = require('./server.js');
 const routes = require('./routes/index.js');
 
-function main ()
-{
+const main = () => {
 	server
-		.init(routes)
-		.then(app =>
-		{
-			server.start(app);
-			
-		});
+	.init(routes)
+	.then(server.start);
 }
 
 main();

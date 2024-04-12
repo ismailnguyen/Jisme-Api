@@ -1,8 +1,10 @@
+'use strict';
+
 const {
     findRecents,
     findAll,
-    create,
     find,
+    create,
     update,
     remove
 } = require('../../../controllers/accountController')
@@ -20,7 +22,7 @@ const cors_options = async function (request) {
     }
 }
 
-const accounts_get = async function ({ path, headers }) {
+const accounts_get = async function ({ path, headers, queryStringParameters }) {
     // Check path if it contains an account Id
     const accountId = path.split('accounts/')[1];
 
@@ -50,7 +52,10 @@ const accounts_get = async function ({ path, headers }) {
     }
 
     // If no account id found on path
-    const { status, data } = await findAll(headers);
+    const { status, data } = await findAll(headers, {
+        limit: queryStringParameters.limit,
+        page: queryStringParameters.page
+    });
 
     return {
         statusCode: status,

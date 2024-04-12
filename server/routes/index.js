@@ -1,5 +1,6 @@
-exports.registerRoutes = function (app)
-{
+'use strict';
+
+exports.registerRoutes = function (app) {
 	const userRoutes = require('./userRoutes.js');
 	userRoutes(app);
 

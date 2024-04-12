@@ -1,10 +1,11 @@
+'use strict';
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const { port } = require('./config.js');
+const { port } = require('../utils/config.js');
 
-exports.init = function (routes)
-{	
+exports.init = function (routes) {
 	const app = express();
 	app.use(bodyParser.json());
 	app.use(cors());
@@ -16,7 +17,6 @@ exports.init = function (routes)
 	});
 }
 
-exports.start = function (app)
-{
+exports.start = function (app) {
 	app.listen(port, () => console.info(`App now running on port ${port}`));
 }
