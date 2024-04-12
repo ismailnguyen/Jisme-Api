@@ -1,3 +1,7 @@
+[build]
+  command = "echo no build command"
+  functions = "./functions"
+  
 [[redirects]]
   from = "/func/*"
   to = "/.netlify/functions/:splat"
