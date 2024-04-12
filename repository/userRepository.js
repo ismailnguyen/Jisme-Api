@@ -1,8 +1,10 @@
-const { db_users_collection } = require('../config.js');
-const baseRepository = require('./baseRepository.js');
+'use strict';
+
+const { db_users_collection } = require('../utils/config.js');
+const repository = require('./ports/repositoryPort.js');
 
 const findOne = async function ({ query, fields }) {
-    return await baseRepository.findOne(db_users_collection,
+    return await repository.findOne(db_users_collection,
     {
         filter: query,
         projection: fields
@@ -10,14 +12,14 @@ const findOne = async function ({ query, fields }) {
 }
 
 const insertOne = async function (value) {
-    return await baseRepository.insertOne(db_users_collection, 
+    return await repository.insertOne(db_users_collection, 
     {
         document: value
     });
 }
 
 const updateOne = async function ({ query, newValue }) {
-    return await baseRepository.updateOne(db_users_collection,
+    return await repository.updateOne(db_users_collection,
     {
         filter: query,
         update: newValue
