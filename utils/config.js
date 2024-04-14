@@ -23,5 +23,6 @@ module.exports = {
     token_master_secret: process.env.TOKEN_MASTER_SECRET,
     encryption_public_key_salt: process.env.ENCRYPTION_PUBLIC_KEY_SALT,
     encryption_private_key: process.env.ENCRYPTION_PRIVATE_KEY,
+    encryption_private_iv: process.env.ENCRYPTION_PRIVATE_IV,
     hash_salt: process.env.HASH_SALT
 }

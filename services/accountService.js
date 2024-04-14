@@ -1,7 +1,10 @@
 'use strict';
 
-const { decrypt } = require('dotenv');
 const repository = require('../repository/accountRepository.js');
+const { 
+    encrypt,
+    decrypt
+ } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
 
 const findOne = async function({ accountId, user_id }) {
@@ -154,22 +157,35 @@ const remove = async function({ accountIdToRemove, user_id }) {
     }
 }
 
-const enableServerEncryption = async function({ user_id, accounts }) {
+const enableServerEncryption = async function({ user_id, fields, accounts }) {
     if (!user_id) {
         throw generateError('Invalid user', 'Must provide an user uuid.', 400);
     }
 
     try {
-        return await repository.insertMultiple(
-            accounts.map(account => {
-                delete account._id;
+        const encryptedAccounts = accounts.map(account => {
+            delete account._id;
+            account.user_id = user_id;
+            account.isServerEncrypted = true;
 
-                account.user_id = user_id;
-                account.isServerEncrypted = true;
+            fields
+            .filter(field => account[field])
+            .forEach(field => account[field] = encrypt(account[field]));
 
-                return account;
-            })
-        );
+            return account;
+        });
+
+        await repository.insertMultiple(encryptedAccounts);
+
+        const decryptedAccounts = encryptedAccounts.map(account => {
+            fields
+            .filter(field => account[field])
+            .forEach(field => account[field] = decrypt(account[field]));
+
+            return account;
+        });
+
+        return decryptedAccounts;
     }
     catch (error) {
         throw generateError('Failed to enable server encryption.', error.message, error.code || 403);
