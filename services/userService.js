@@ -12,7 +12,9 @@ const {
     updateOne,
     insertOne
 } = require('../repository/userRepository.js');
-const sha256 = require('sha256');
+const {
+    hash
+} = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
 
 const register = async function(email, password) {
@@ -31,11 +33,11 @@ const register = async function(email, password) {
 		}
 
         let userToRegister = {
-            uuid: sha256(email + password), // Generate unique id for user
+            uuid: hash(email + password), // Generate unique id for user
             email: email,
             created_date: new Date().toISOString(),
             last_update_date: new Date().toISOString(),
-            password: sha256(password), // Encrypt user password with SHA256 algorithm
+            password: hash(password), // Hash user password with SHA256 algorithm
             token: generateUnsignedAccessToken(userToRegister), // Generate temporary unique token for user
             totp_secret: generateTotpSecret(), // Generate TOTP secret for MFA
             public_encryption_key: generatePublicKey(email, password), // Generate public encryption key for user
@@ -70,7 +72,7 @@ const login = async function(email, password) {
 		throw generateError('Invalid user input', 'Must provide an email and password.', 400);
     }
 
-    let encryptedPassword = sha256(password);
+    let encryptedPassword = hash(password);
 
     try {
         const foundUser = await findOne({
