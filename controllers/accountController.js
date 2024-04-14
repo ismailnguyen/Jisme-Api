@@ -225,7 +225,7 @@ const remove = async function({ authorization }, { account_id }) {
 	}
 }
 
-const enableServerEncryption = async function({ authorization }, { fields, accounts }) {
+const enableServerEncryption = async function({ authorization }, { accounts }) {
 	try {
 		const { uuid, mfaValid } = await verifyToken(authorization);
 
@@ -236,7 +236,6 @@ const enableServerEncryption = async function({ authorization }, { fields, accou
 		try {
 			const result = await service.enableServerEncryption({
 				user_id: uuid,
-				fields: fields,
 				accounts: accounts
 			});
 

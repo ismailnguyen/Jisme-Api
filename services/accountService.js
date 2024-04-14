@@ -7,6 +7,24 @@ const {
  } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
 
+const encryptedFields = [
+	'platform',
+    'icon',
+	'login',
+	'password',
+	'password_clue',
+	'tags',
+	'social_login',
+	'description',
+	'notes',
+    'card_number',
+    'card_pin',
+    'card_expiracy',
+    'card_cryptogram',
+    'card_number',
+    'totp_secret'
+];
+
 const findOne = async function({ accountId, user_id }) {
     if (!user_id) {
 		throw generateError('Invalid user', 'Must provide an user uuid.', 400);
@@ -25,7 +43,9 @@ const findOne = async function({ accountId, user_id }) {
 		}
 
         if (account.isServerEncrypted) {
-            decrypt(account, PRIVATE_);
+            encryptedFields
+                .filter(field => account[field])
+                .forEach(field => account[field] = decrypt(account[field]));
         }
 
         return account;
@@ -41,7 +61,7 @@ const findRecents = async function({ user_id }) {
     }
 
     try {
-        const accounts = await repository.findAll({
+        const encryptedAccounts = await repository.findAll({
             query: {
                 user_id: user_id
             },
@@ -51,11 +71,19 @@ const findRecents = async function({ user_id }) {
             }
         });
 
-        if (!accounts) {
+        if (!encryptedAccounts) {
 			throw generateError('Error', 'No accounts found', 404);
 		}
 
-        return accounts;
+        return encryptedAccounts.map(account => {
+            if (account.isServerEncrypted) {
+                encryptedFields
+                    .filter(field => account[field])
+                    .forEach(field => account[field] = decrypt(account[field]));
+            }
+
+            return account;
+        });
     }
     catch (error) {
         throw generateError('No accounts found', error.reason, error.code || 404);
@@ -85,7 +113,7 @@ const findAll = async function({ user_id, max, offset }) {
     }
 
     try {
-        const accounts = await repository.findAll({
+        const encryptedAccounts = await repository.findAll({
             query: {
                 user_id: user_id
             },
@@ -93,11 +121,19 @@ const findAll = async function({ user_id, max, offset }) {
             offset: offset
         });
 
-        if (!accounts) {
+        if (!encryptedAccounts) {
 			throw generateError('Error', 'No accounts found', 404);
 		}
 
-        return accounts;
+        return encryptedAccounts.map(account => {
+            if (account.isServerEncrypted) {
+                encryptedFields
+                    .filter(field => account[field])
+                    .forEach(field => account[field] = decrypt(account[field]));
+            }
+
+            return account;
+        });
     }
     catch (error) {
         throw generateError('No accounts found', error.message, 404);
@@ -111,6 +147,11 @@ const create = async function({ accountToCreate, user_id }) {
 
     accountToCreate.user_id = user_id;
     accountToCreate.created_date = new Date().toISOString();
+    accountToCreate.isServerEncrypted = true;
+
+    encryptedFields
+        .filter(field => accountToCreate[field])
+        .forEach(field => accountToCreate[field] = encrypt(accountToCreate[field]));
 
     try {
         return await repository.insertOne(accountToCreate);
@@ -123,6 +164,12 @@ const create = async function({ accountToCreate, user_id }) {
 const update = async function({ accountIdToUpdate, accountNewValue, user_id }) {
     if (!accountIdToUpdate || !accountNewValue || !user_id) {
 		throw generateError('Invalid user input', 'Must provide an account.', 400);
+    }
+
+    if (accountNewValue.isServerEncrypted) {
+        encryptedFields
+            .filter(field => accountNewValue[field])
+            .forEach(field => accountNewValue[field] = encrypt(accountNewValue[field]));
     }
 
     try {
@@ -157,7 +204,7 @@ const remove = async function({ accountIdToRemove, user_id }) {
     }
 }
 
-const enableServerEncryption = async function({ user_id, fields, accounts }) {
+const enableServerEncryption = async function({ user_id, accounts }) {
     if (!user_id) {
         throw generateError('Invalid user', 'Must provide an user uuid.', 400);
     }
@@ -168,9 +215,9 @@ const enableServerEncryption = async function({ user_id, fields, accounts }) {
             account.user_id = user_id;
             account.isServerEncrypted = true;
 
-            fields
-            .filter(field => account[field])
-            .forEach(field => account[field] = encrypt(account[field]));
+            encryptedFields
+                .filter(field => account[field])
+                .forEach(field => account[field] = encrypt(account[field]));
 
             return account;
         });
@@ -178,9 +225,9 @@ const enableServerEncryption = async function({ user_id, fields, accounts }) {
         await repository.insertMultiple(encryptedAccounts);
 
         const decryptedAccounts = encryptedAccounts.map(account => {
-            fields
-            .filter(field => account[field])
-            .forEach(field => account[field] = decrypt(account[field]));
+            encryptedFields
+                .filter(field => account[field])
+                .forEach(field => account[field] = decrypt(account[field]));
 
             return account;
         });
