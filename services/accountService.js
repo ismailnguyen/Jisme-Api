@@ -154,6 +154,28 @@ const remove = async function({ accountIdToRemove, user_id }) {
     }
 }
 
+const enableServerEncryption = async function({ user_id, accounts }) {
+    if (!user_id) {
+        throw generateError('Invalid user', 'Must provide an user uuid.', 400);
+    }
+
+    try {
+        return await repository.insertMultiple(
+            accounts.map(account => {
+                delete account._id;
+
+                account.user_id = user_id;
+                account.isServerEncrypted = true;
+
+                return account;
+            })
+        );
+    }
+    catch (error) {
+        throw generateError('Failed to enable server encryption.', error.message, error.code || 403);
+    }
+}
+
 exports.count = count;
 exports.findOne = findOne;
 exports.findRecents = findRecents;
@@ -161,3 +183,4 @@ exports.findAll = findAll;
 exports.create = create;
 exports.update = update;
 exports.remove = remove;
+exports.enableServerEncryption = enableServerEncryption;

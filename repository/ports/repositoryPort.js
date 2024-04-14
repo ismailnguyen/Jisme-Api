@@ -66,6 +66,15 @@ const insertOne = async function (collection, { document }) {
     return insertedData;
 }
 
+const insertMultiple = async function (collection, { documents }) {
+    const response = await repository.sendQuery(collection, {
+        action: 'insertMany',
+        documents: documents
+    });
+
+    return response.insertedIds;
+}
+
 const updateOne = async function (collection, { filter, update }) {
     const updateId = filter._id; // Store it before it's changed into ObjectId
 
@@ -97,4 +106,5 @@ exports.findOne = findOne;
 exports.findAll = findAll;
 exports.updateOne = updateOne;
 exports.insertOne = insertOne;
+exports.insertMultiple = insertMultiple;
 exports.deleteOne = deleteOne;

@@ -6,7 +6,8 @@ const {
 	find,
 	create,
 	update,
-	remove
+	remove,
+	enableServerEncryption
 } = require('../../controllers/accountController.js');
 
 module.exports = function (app) {
@@ -64,6 +65,16 @@ module.exports = function (app) {
 	.route('/accounts/:account_id')
 	.delete(async ({ headers, params }, response) => {
 		const { status, data } = await remove(headers, params);
+
+		response
+		.status(status)
+		.json(data);
+	});
+
+	app
+	.route('/accounts/encryption/enable')
+	.post(async ({ headers, body }, response) => {
+		const { status, data } = await enableServerEncryption(headers, body);
 
 		response
 		.status(status)

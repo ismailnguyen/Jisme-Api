@@ -1,6 +1,7 @@
 'use strict';
 
 const connection = require('./dbConnection.js');
+const { generateError } = require('../../utils/errors.js');
 
 const {
     ObjectId
@@ -14,6 +15,7 @@ const sendQuery = async function (collectionName, {
     skip,
     sort,
     document,
+    documents,
     update,
     pipeline
 }) {
@@ -42,6 +44,12 @@ const sendQuery = async function (collectionName, {
                 document: collection.findOne(filter)
             }
         };
+    }
+
+    if (action == 'insertMany' && documents) {
+        // Prevent additional documents from being inserted if one fails
+        const options = { ordered: true };
+        return collection.insertMany(documents, options);
     }
 
     if (action == 'find') {
@@ -74,7 +82,7 @@ const sendQuery = async function (collectionName, {
         return collection.aggregate(pipeline);
     }
 
-    if (action == 'insertOne') {
+    if (action == 'insertOne' && document) {
         // If there is already an id, remove it before inserting
         // Because databse will generate it
         delete document._id;
@@ -94,6 +102,8 @@ const sendQuery = async function (collectionName, {
     if (action == 'deleteOne') {
         return collection.deleteOne(filter);
     }
+
+    throw generateError('Database query error', 'No db action found', 500);
 }
 
 exports.sendQuery = sendQuery;
