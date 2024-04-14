@@ -104,7 +104,18 @@ const findAll = async function({ authorization }, { limit, page }) {
 			offset: startIndex
 		});
 
-		result.rowsPerPage = limitPerPage > result.totalAccounts ? result.totalAccounts : limitPerPage;
+		// If the number of accounts is less than the limit per page, set the rowsPerPage to the total number of accounts
+		if (limitPerPage > result.totalAccounts) {
+			result.rowsPerPage = result.totalAccounts;
+		}
+		// If the number of accounts is less than the limit per page, set the rowsPerPage to the number of accounts
+		else if (result.data.length < limitPerPage) {
+			result.rowsPerPage = result.data.length;
+		}
+		// Otherwise, set the rowsPerPage to the limit per page
+		else {
+			result.rowsPerPage = limitPerPage;
+		}
 
 		return {
 			status: 200,
@@ -214,9 +225,38 @@ const remove = async function({ authorization }, { account_id }) {
 	}
 }
 
+const enableServerEncryption = async function({ authorization }, accounts) {
+	try {
+		const { uuid, mfaValid } = await verifyToken(authorization);
+
+		if (!mfaValid) {
+			throw generateError('Unauthorized', 'MFA not valid', 401);
+		}
+
+		try {
+			const result = await service.enableServerEncryption({
+				user_id: uuid,
+				accounts: accounts
+			});
+
+			return {
+				status: 200,
+				data: result
+			};
+		}
+		catch(error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
 exports.find = find;
 exports.findRecents = findRecents;
 exports.findAll = findAll;
 exports.create = create;
 exports.update = update;
 exports.remove = remove;
+exports.enableServerEncryption = enableServerEncryption;
