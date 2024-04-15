@@ -83,7 +83,7 @@ const update = async function({ authorization }, payload) {
 				},
 				{
 					password: payload.password,
-					last_update_date: new Date(), // Update last update date at each update
+					last_update_date: new Date().toISOString(), // Update last update date at each update
 					avatarUrl: payload.avatarUrl,
 					passkeys: payload.passkeys
 				}

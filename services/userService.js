@@ -13,7 +13,9 @@ const {
     insertOne
 } = require('../repository/userRepository.js');
 const {
-    hash
+    hash,
+    encrypt,
+    decrypt
 } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
 
@@ -72,13 +74,13 @@ const login = async function(email, password) {
 		throw generateError('Invalid user input', 'Must provide an email and password.', 400);
     }
 
-    let encryptedPassword = hash(password);
+    let hashedPassword = hash(password);
 
     try {
         const foundUser = await findOne({
             query: { 
-                email: email,
-                password: encryptedPassword
+                email: encrypt(email),
+                password: encrypt(hashedPassword)
             }
         });
 
@@ -87,9 +89,12 @@ const login = async function(email, password) {
 		}
 
         return {
-            email: foundUser.email,
-            token: generateUnsignedAccessToken(foundUser),
-            avatarUrl: foundUser.avatarUrl,
+            email: decrypt(foundUser.email),
+            token: generateUnsignedAccessToken({
+                email: decrypt(foundUser.email),
+                uuid: decrypt(foundUser.uuid)
+            }),
+            avatarUrl: decrypt(foundUser.avatarUrl),
             isMFARequired: foundUser.isMFAEnabled
         };
     }
@@ -106,7 +111,7 @@ const loginWithPasskey = async function(passkey) {
     try {
         const foundUser = await findOne({
             query: { 
-                uuid: passkey.response.userHandle
+                uuid: encrypt(passkey.response.userHandle)
             }
         });
 
@@ -120,11 +125,18 @@ const loginWithPasskey = async function(passkey) {
 			throw generateError('Error', 'Invalid passkey', 401);
         }
 
-        // Generate access token
-        foundUser.token = generateSignedAccessToken(foundUser, false);
+        const decryptedEmail = decrypt(foundUser.email);
+        const decryptedUuid = decrypt(foundUser.uuid);
 
         // Save new token on database
-        return await update({ email: foundUser.email, uuid: foundUser.uuid }, foundUser);
+        return await update({ email: decryptedEmail, uuid: decryptedUuid }, {
+            // Generate access token
+            token: generateSignedAccessToken({
+                email: decryptedEmail,
+                uuid: decryptedUuid
+            }, false),
+            last_login_date: new Date().toISOString()
+        });
     }
     catch (error) {
         throw generateError('User not found', error.message, 404);
@@ -139,8 +151,8 @@ const verifyMFA = async function({ email, uuid }, isExtendedSession, totpToken) 
     try {
         const foundUser = await findOne({
             query: { 
-                uuid: uuid,
-                email: email
+                uuid: encrypt(uuid),
+                email: encrypt(email)
             }
         });
 
@@ -150,15 +162,22 @@ const verifyMFA = async function({ email, uuid }, isExtendedSession, totpToken) 
 
         let user = foundUser;
         
-        if (!isTotpValid(totpToken, user.totp_secret)) {
+        if (!isTotpValid(totpToken, decrypt(user.totp_secret))) {
 		    throw generateError('Invalid user input', 'Invalid TOTP token.', 401);
         }
 
-        // Generate access token
-        user.token = generateSignedAccessToken(user, isExtendedSession);
+        const decryptedEmail = decrypt(user.email);
+        const decryptedUuid = decrypt(user.uuid);
 
         // Save new token on database
-        return await update({ email: user.email, uuid: user.uuid }, user);
+        return await update({ email: decryptedEmail, uuid: decryptedUuid }, {
+            // Generate access token
+            token: generateSignedAccessToken({
+                email: decryptedEmail,
+                uuid: decryptedUuid
+            }, isExtendedSession),
+            last_login_date: new Date().toISOString()
+        });
     }
     catch (error) {
         throw generateError(error.name || error.message || 'User not found', error.reason, error.code || 404);
@@ -175,10 +194,16 @@ const updateLastUpdatedDate = async function({ email, uuid }) {
 
 const update = async function({ email, uuid }, payload) {
     try {
+        const encryptedEmail = encrypt(email);
+        const encryptedUuid = encrypt(uuid);
+
+        // const decryptedEmail = decrypt(email);
+        // const decryptedUuid = decrypt(uuid);
+
         const foundUser = await findOne({
             query: {
-                email: email,
-                uuid: uuid
+                email: encryptedEmail,
+                uuid: encryptedUuid
             }
         });
     
@@ -192,37 +217,42 @@ const update = async function({ email, uuid }, payload) {
         // Remove forced email, uuid pass in controller
 
         let userToUpdate = {
-            email: email,
-            uuid: uuid,
-            password: payload.password || foundUser.password,
+            email: encryptedEmail,
+            uuid: encryptedUuid,
+            password: payload.password ? encrypt(payload.password) : foundUser.password,
             created_date: foundUser.created_date,
-            token: payload.token || foundUser.token,
             // Update with new Date() only it's called directly from the controller
             last_update_date: payload.last_update_date || foundUser.last_update_date,
-            avatarUrl: payload.avatarUrl || foundUser.avatarUrl,
-            passkeys: payload.passkeys || foundUser.passkeys
+            last_login_date: payload.last_login_date || foundUser.last_login_date,
+            avatarUrl: payload.avatarUrl ? encrypt(payload.avatarUrl) : foundUser.avatarUrl,
+            passkeys: payload.passkeys || foundUser.passkeys,
+            token: payload.token ? encrypt(payload.token) : foundUser.token
         };
         
         try {
-            const updatedUser = await updateOne({
+            await updateOne({
                 query: {
-                    email: email,
-                    uuid: uuid
+                    email: encryptedEmail,
+                    uuid: encryptedUuid
                 },
                 newValue: userToUpdate
             });
     
+            // use foundUser or userToUpdate to get the updated user because updateOne doesn't return the updated user
             return {
-                email: updatedUser.email,
-                uuid: updatedUser.uuid,
-                created_date: updatedUser.created_date,
-                token: updatedUser.token,
-                last_update_date: updatedUser.last_update_date,
-                avatarUrl: updatedUser.avatarUrl,
-                isMFAEnabled: updatedUser.isMFAEnabled,
-                totp_secret: foundUser.totp_secret, // as this is not updated, it's only present in the first find request
-                public_encryption_key: foundUser.public_encryption_key,
-                passkeys: updatedUser.passkeys
+                email: email,
+                uuid: uuid,
+                created_date: userToUpdate.created_date,
+                last_update_date: userToUpdate.last_update_date,
+                last_login_date: userToUpdate.last_login_date,
+                token: decrypt(userToUpdate.token),
+                avatarUrl: decrypt(userToUpdate.avatarUrl),
+                isMFAEnabled: userToUpdate.isMFAEnabled,
+                passkeys: userToUpdate.passkeys,
+
+                // as these are not updated, there are only present in the first find request
+                totp_secret: decrypt(foundUser.totp_secret), 
+                public_encryption_key: decrypt(foundUser.public_encryption_key),
             };
         }
         catch (error) {
@@ -242,8 +272,8 @@ const getInformation = async function({ email, uuid }) {
     try {
         const foundUser = await findOne({
             query: {
-                email: email,
-                uuid: uuid
+                email: encrypt(email),
+                uuid: encrypt(uuid)
             }
         });
 
@@ -252,15 +282,15 @@ const getInformation = async function({ email, uuid }) {
 		}
 
         return {
-            email: foundUser.email,
-            uuid: foundUser.uuid,
+            email: decrypt(foundUser.email),
+            uuid: decrypt(foundUser.uuid),
             created_date: foundUser.created_date,
-            token: foundUser.token,
+            token: decrypt(foundUser.token),
             last_update_date: foundUser.last_update_date,
-            avatarUrl: foundUser.avatarUrl,
+            avatarUrl: decrypt(foundUser.avatarUrl),
             isMFAEnabled: foundUser.isMFAEnabled,
-            totp_secret: foundUser.totp_secret,
-            public_encryption_key: foundUser.public_encryption_key,
+            totp_secret: decrypt(foundUser.totp_secret),
+            public_encryption_key: decrypt(foundUser.public_encryption_key),
             passkeys: foundUser.passkeys
         };
     }

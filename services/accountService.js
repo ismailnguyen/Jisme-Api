@@ -149,12 +149,21 @@ const create = async function({ accountToCreate, user_id }) {
     accountToCreate.created_date = new Date().toISOString();
     accountToCreate.isServerEncrypted = true;
 
+    // enforce server encryption for every account
     encryptedFields
         .filter(field => accountToCreate[field])
         .forEach(field => accountToCreate[field] = encrypt(accountToCreate[field]));
 
     try {
-        return await repository.insertOne(accountToCreate);
+        const createdAccount = await repository.insertOne(accountToCreate);
+
+        if (createdAccount.isServerEncrypted) {
+            encryptedFields
+                .filter(field => createdAccount[field])
+                .forEach(field => createdAccount[field] = decrypt(createdAccount[field]));
+        }
+
+        return createdAccount;
     }
     catch (error) {
         throw generateError('Failed to create new account.', error.message, error.code || 403);
@@ -166,20 +175,29 @@ const update = async function({ accountIdToUpdate, accountNewValue, user_id }) {
 		throw generateError('Invalid user input', 'Must provide an account.', 400);
     }
 
-    if (accountNewValue.isServerEncrypted) {
-        encryptedFields
-            .filter(field => accountNewValue[field])
-            .forEach(field => accountNewValue[field] = encrypt(accountNewValue[field]));
-    }
+    // enforce server encryption for every account
+    encryptedFields
+        .filter(field => accountNewValue[field])
+        .forEach(field => accountNewValue[field] = encrypt(accountNewValue[field]));
+    
+    accountNewValue.isServerEncrypted = true;
 
     try {
-        return await repository.updateOne({
+        const updatedAccount = await repository.updateOne({
             query: {
                 _id: accountIdToUpdate,
                 user_id: user_id
             },
             newValue: accountNewValue
         });
+
+        if (updatedAccount.isServerEncrypted) {
+            encryptedFields
+                .filter(field => updatedAccount[field])
+                .forEach(field => updatedAccount[field] = decrypt(updatedAccount[field]));
+        }
+
+        return updatedAccount; 
     }
     catch (error) {
         throw generateError('Failed to update account.', error.message, error.code || 403);
