@@ -88,6 +88,17 @@ const login = async function(email, password) {
 			throw generateError('Error', 'User not found', 404);
 		}
 
+        // Verify last login action
+		// if the user logged in less than 5 minutes ago,
+		// don't allow him to log in again, and ask to wait 5 minutes before retrying
+        // This extra check do not apply for passkey login because there is no brute force attack possible
+		const lastLogin = new Date(foundUser.last_login_date);
+
+        const loginDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
+        if (lastLogin && (new Date() - lastLogin) < loginDelay) {
+            throw generateError('Unauthorized', 'Too many login attempt. Please retry later.', 401);
+        }
+
         return {
             email: decrypt(foundUser.email),
             token: generateUnsignedAccessToken({
@@ -99,7 +110,7 @@ const login = async function(email, password) {
         };
     }
     catch (error) {
-        throw generateError('User not found', error.message, 404);
+        throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
     }
 }
 
