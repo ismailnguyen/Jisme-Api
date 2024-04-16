@@ -1,7 +1,7 @@
 'use strict';
 const {
     login_delay_in_seconds
- } = require('./config.js');
+ } = require('../utils/config.js');
 
 const { 
     generatePublicKey,
