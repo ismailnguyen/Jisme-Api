@@ -1,4 +1,7 @@
 'use strict';
+const {
+    login_delay_in_seconds
+ } = require('./config.js');
 
 const { 
     generatePublicKey,
@@ -89,12 +92,13 @@ const login = async function(email, password) {
 		}
 
         // Verify last login action
-		// if the user logged in less than 5 minutes ago,
+		// if the user logged in less than X minutes ago (configured by env variables),
 		// don't allow him to log in again, and ask to wait 5 minutes before retrying
         // This extra check do not apply for passkey login because there is no brute force attack possible
 		const lastLogin = new Date(foundUser.last_login_date);
 
-        const loginDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
+        // 300 seconds is default value when config is missing
+        const loginDelay = (login_delay_in_seconds || 300) * 1000; // 5 minutes in milliseconds
         if (lastLogin && (new Date() - lastLogin) < loginDelay) {
             throw generateError('Unauthorized', 'Too many login attempt. Please retry later.', 401);
         }
