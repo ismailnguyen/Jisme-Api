@@ -118,15 +118,15 @@ const login = async function(email, password) {
     }
 }
 
-const loginWithPasskey = async function(passkey) {
-    if (!passkey || !passkey.response || !passkey.response.userHandle) {
+const loginWithPasskey = async function(passkeyId, userId) {
+    if (!passkeyId || !userId) {
 		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
     }
 
     try {
         const foundUser = await findOne({
             query: { 
-                uuid: encrypt(passkey.response.userHandle)
+                uuid: encrypt(userId)
             }
         });
 
@@ -134,7 +134,7 @@ const loginWithPasskey = async function(passkey) {
 			throw generateError('Error', 'User not found', 404);
 		}
 
-        const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkey.id);
+        const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkeyId);
 
         if (!isPasskeyMatching) {
 			throw generateError('Error', 'Invalid passkey', 401);

@@ -18,9 +18,9 @@ const login = async function({ email, password }) {
 	}
 }
 
-const loginWithPasskey = async function (passkey) {
+const loginWithPasskey = async function ({ id, response: { userHandle }}) {
 	try {
-		const user = await userService.loginWithPasskey(passkey);
+		const user = await userService.loginWithPasskey(id, userHandle);
 	
 		return {
 			status: 200,
