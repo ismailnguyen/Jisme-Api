@@ -2,6 +2,7 @@
 
 const {
 	login,
+	requestLoginWithPasskey,
 	loginWithPasskey,
 	verifyMFA,
 	register,
@@ -16,8 +17,24 @@ module.exports = function (app) {
 		const { status, data } = await login(body);
 
 		response
-		.status(status)
-		.json(data);
+			.status(status)
+			.json(data);
+	});
+
+	app
+	.route('/users/login-passkey')
+	.get(async ({ headers, connection }, response) => {
+		var client = {
+			agent: headers['user-agent'],
+			referer: headers['referrer'],
+			ip: headers['x-forwarded-for'] || connection.remoteAddress,
+		  };
+		  
+		const { status, data } = await requestLoginWithPasskey(client);
+
+		response
+			.status(status)
+			.json(data);
 	});
 
 	app
@@ -26,8 +43,8 @@ module.exports = function (app) {
 		const { status, data } = await loginWithPasskey(body);
 
 		response
-		.status(status)
-		.json(data);
+			.status(status)
+			.json(data);
 	});
 
 	app
@@ -36,8 +53,8 @@ module.exports = function (app) {
 		const { status, data } = await verifyMFA(headers, body);
 
 		response
-		.status(status)
-		.json(data);
+			.status(status)
+			.json(data);
 	});
 
 	app
@@ -46,8 +63,8 @@ module.exports = function (app) {
 		const { status, data } = await register(body);
 
 		response
-		.status(status)
-		.json(data);
+			.status(status)
+			.json(data);
 	});
 
 	app
@@ -56,8 +73,8 @@ module.exports = function (app) {
 		const { status, data } = await update(headers, body);
 
 		response
-		.status(status)
-		.json(data);
+			.status(status)
+			.json(data);
 	});
 
 	app
@@ -66,7 +83,7 @@ module.exports = function (app) {
 		const { status, data } = await getInformation(headers);
 
 		response
-		.status(status)
-		.json(data);
+			.status(status)
+			.json(data);
 	});
 }

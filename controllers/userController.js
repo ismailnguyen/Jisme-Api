@@ -1,7 +1,10 @@
 'use strict';
 
 const userService = require('../services/userService.js');
-const { verifyToken } = require('../utils/credentials.js');
+const {
+	verifyToken,
+	verifyPasskeyChallenge
+} = require('../utils/credentials.js');
 const { throwError } = require('../utils/errors.js');
 
 const login = async function({ email, password }) {
@@ -18,14 +21,39 @@ const login = async function({ email, password }) {
 	}
 }
 
-const loginWithPasskey = async function ({ id, response: { userHandle }}) {
+const requestLoginWithPasskey = async function ({ agent, referer, ip}) {
 	try {
-		const user = await userService.loginWithPasskey(id, userHandle);
+		const passkeyOptions = await userService.requestLoginWithPasskey({ 
+			agent: agent, 
+			referer: referer, 
+			ip: ip
+		});
 	
 		return {
 			status: 200,
-			data: user
+			data: passkeyOptions
 		};
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
+const loginWithPasskey = async function ({ id, response: { userHandle }}, challenge) {
+	try {
+		const { agent, referer, ip } = verifyPasskeyChallenge (challenge);
+
+		try {
+			const user = await userService.loginWithPasskey(id, userHandle, challenge);
+		
+			return {
+				status: 200,
+				data: user
+			};
+		}
+		catch (error) {
+			return throwError(error);
+		}
 	}
 	catch (error) {
 		return throwError(error);
@@ -134,6 +162,7 @@ const getInformation = async function({ authorization }) {
 }
 
 exports.login = login;
+exports.requestLoginWithPasskey = requestLoginWithPasskey;
 exports.loginWithPasskey = loginWithPasskey;
 exports.verifyMFA = verifyMFA;
 exports.register = register;

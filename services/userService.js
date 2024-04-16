@@ -8,7 +8,8 @@ const {
     generateUnsignedAccessToken,
     generateSignedAccessToken,
     isTotpValid,
-    generateTotpSecret
+    generateTotpSecret,
+    generatePasskeyChallenge
 } = require('../utils/credentials.js');
 const {
     findOne,
@@ -118,7 +119,22 @@ const login = async function(email, password) {
     }
 }
 
-const loginWithPasskey = async function(passkeyId, userId) {
+const requestLoginWithPasskey = async function({ agent, referer, ip}) {
+    try {
+        return {
+            challenge: generatePasskeyChallenge({ 
+                agent: agent, 
+                referer: referer, 
+                ip: ip
+            })
+        };
+    }
+    catch (error) {
+        throw generateError('User not found', error.message, 404);
+    }
+}
+
+const loginWithPasskey = async function(passkeyId, userId, challenge) {
     if (!passkeyId || !userId) {
 		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
     }
@@ -316,6 +332,7 @@ const getInformation = async function({ email, uuid }) {
 
 exports.register = register;
 exports.login = login;
+exports.requestLoginWithPasskey = requestLoginWithPasskey;
 exports.loginWithPasskey = loginWithPasskey;
 exports.verifyMFA = verifyMFA;
 exports.updateLastUpdatedDate = updateLastUpdatedDate;

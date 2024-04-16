@@ -25,5 +25,6 @@ module.exports = {
     encryption_private_key: process.env.ENCRYPTION_PRIVATE_KEY,
     encryption_private_iv: process.env.ENCRYPTION_PRIVATE_IV,
     hash_salt: process.env.HASH_SALT,
-    login_delay_in_seconds: process.env.LOGIN_DELAY_IN_SECONDS
+    login_delay_in_seconds: process.env.LOGIN_DELAY_IN_SECONDS,
+    passkey_challenge_private_key: process.env.PASSKEY_CHALLENGE_PRIVATE_KEY
 }
