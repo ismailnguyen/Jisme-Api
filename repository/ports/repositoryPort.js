@@ -78,11 +78,15 @@ const insertMultiple = async function (collection, { documents }) {
 const updateOne = async function (collection, { filter, update }) {
     const updateId = filter._id; // Store it before it's changed into ObjectId
 
-    await repository.sendQuery(collection, {
+    const { matchedCount } = await repository.sendQuery(collection, {
         action: 'updateOne',
         filter: filter,
         update: update
     });
+
+    if (!matchedCount) {
+        return null;
+    }
 
     let updatedData = update;
     // Give back the id of updated content

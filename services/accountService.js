@@ -8,6 +8,7 @@ const {
 const { generateError } = require('../utils/errors.js');
 
 const encryptedFields = [
+    'user_id',
 	'platform',
     'icon',
 	'login',
@@ -34,7 +35,7 @@ const findOne = async function({ accountId, user_id }) {
         const account = await repository.findOne({
             query: {
                 _id: accountId,
-                user_id: user_id
+                user_id: encrypt(user_id)
             }
         });
 
@@ -63,7 +64,7 @@ const findRecents = async function({ user_id }) {
     try {
         const encryptedAccounts = await repository.findAll({
             query: {
-                user_id: user_id
+                user_id: encrypt(user_id)
             },
             max: 10,
             sortBy: {
@@ -98,7 +99,7 @@ const count = async function({ user_id }) {
     try {
         return await repository.count({
             query: {
-                user_id: user_id
+                user_id: encrypt(user_id)
             }
         });
     }
@@ -115,7 +116,7 @@ const findAll = async function({ user_id, max, offset }) {
     try {
         const encryptedAccounts = await repository.findAll({
             query: {
-                user_id: user_id
+                user_id: encrypt(user_id)
             },
             max: max,
             offset: offset
@@ -145,7 +146,7 @@ const create = async function({ accountToCreate, user_id }) {
 		throw generateError('Invalid user input', 'Must provide an account.', 400);
     }
 
-    accountToCreate.user_id = user_id;
+    accountToCreate.user_id = user_id; // this will be encrypted on following lines
     accountToCreate.created_date = new Date().toISOString();
     accountToCreate.isServerEncrypted = true;
 
@@ -174,19 +175,19 @@ const update = async function({ accountIdToUpdate, accountNewValue, user_id }) {
     if (!accountIdToUpdate || !accountNewValue || !user_id) {
 		throw generateError('Invalid user input', 'Must provide an account.', 400);
     }
+    
+    accountNewValue.isServerEncrypted = true;
 
     // enforce server encryption for every account
     encryptedFields
         .filter(field => accountNewValue[field])
         .forEach(field => accountNewValue[field] = encrypt(accountNewValue[field]));
-    
-    accountNewValue.isServerEncrypted = true;
 
     try {
         const updatedAccount = await repository.updateOne({
             query: {
                 _id: accountIdToUpdate,
-                user_id: user_id
+                user_id: encrypt(user_id)
             },
             newValue: accountNewValue
         });
@@ -213,7 +214,7 @@ const remove = async function({ accountIdToRemove, user_id }) {
         return await repository.deleteOne({
             query: {
                 _id: accountIdToRemove,
-                user_id: user_id
+                user_id: encrypt(user_id)
             }
         });
     }
@@ -229,8 +230,7 @@ const enableServerEncryption = async function({ user_id, accounts }) {
 
     try {
         const encryptedAccounts = accounts.map(account => {
-            delete account._id;
-            account.user_id = user_id;
+            account.user_id = user_id; // this will be encrypted on following lines
             account.isServerEncrypted = true;
 
             encryptedFields
@@ -240,7 +240,19 @@ const enableServerEncryption = async function({ user_id, accounts }) {
             return account;
         });
 
-        await repository.insertMultiple(encryptedAccounts);
+        for (let account of encryptedAccounts) {
+            if (!account._id) {
+                throw generateError('Invalid account', 'Must provide an account id.', 400);
+            }
+
+            await repository.updateOne({
+                query: {
+                    _id: account._id,
+                    user_id: account.user_id
+                },
+                newValue: account
+            });
+        }
 
         const decryptedAccounts = encryptedAccounts.map(account => {
             encryptedFields
