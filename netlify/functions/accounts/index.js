@@ -27,7 +27,7 @@ const accounts_get = async function ({ path, headers, queryStringParameters }) {
     const accountId = path.split('accounts/')[1];
 
     if (accountId) {
-        if (accountId === 'recents/') {
+        if (accountId.includes('recents')) {
             const { status, data } = await findRecents(headers);
 
             return {
