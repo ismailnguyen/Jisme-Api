@@ -170,7 +170,7 @@ const loginWithPasskey = async function(passkeyId, userId, challenge) {
         });
     }
     catch (error) {
-        throw generateError('User not found', error.message, 404);
+        throw generateError('User not found', error.reason || error.message, 404);
     }
 }
 

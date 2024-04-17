@@ -33,11 +33,6 @@ const decrypt = function (content) {
     return decrypted
 }
 
-const randomCrypto = function (length) {
-    return crypto.randomBytes(length).toString('hex');
-}
-
 exports.hash = hash;
 exports.encrypt = encrypt;
 exports.decrypt = decrypt;
-exports.randomCrypto = randomCrypto;

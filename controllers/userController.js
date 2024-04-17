@@ -45,12 +45,12 @@ const loginWithPasskey = async function ({ passkey, challenge }, client) {
 			throw generateError('Unauthorized', 'Missing passkey/challenge', 401);
 		}
 
-		//const { agent, referer, ip } = await verifyPasskeyChallenge (challenge);
+		const { agent, referer, ip } = await verifyPasskeyChallenge (challenge);
 
-		// If the one who request the challenge is not the same as the one who is trying to log, reject the request
-		// if (client.agent !== agent || client.referer !== referer || client.ip !== ip) {
-		// 	throw generateError('Unauthorized', 'Invalid passkey challenge', 401);
-		// }
+		//If the one who request the challenge is not the same as the one who is trying to log, reject the request
+		if (client.agent !== agent || client.referer !== referer || client.ip !== ip) {
+			throw generateError('Unauthorized', 'Invalid passkey challenge', 401);
+		}
 
 		const { id: passkeyId, response: passkeyResponse } = passkey;
 
