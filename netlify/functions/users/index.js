@@ -27,7 +27,7 @@ const extractClient = function({ headers }) {
 	return {
 		agent: headers['user-agent'],
 		referer: headers['referer'] || headers['host'],
-		ip: headers['x-forwarded-for'],
+		ip: headers['x-forwarded-for']
 	};
 }
 

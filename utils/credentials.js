@@ -8,6 +8,9 @@ const {
   encryption_public_key_salt,
   passkey_challenge_private_key
 } = require('./config.js');
+const {
+  randomCrypto
+} = require('./cypher.js');
 const { generateError } = require('../utils/errors.js');
 
 // Generate a private key for encryption
@@ -89,7 +92,12 @@ const verifyPasskeyChallenge = async function (passkeyChallenge) {
   }
 }
 
+
 const generatePasskeyChallenge = function ({ agent, referer, ip}) {
+
+  return randomCrypto(32);
+
+
   return sign({
       agent: agent,
       referer: referer,
