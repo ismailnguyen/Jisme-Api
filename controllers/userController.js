@@ -5,7 +5,7 @@ const {
 	verifyToken,
 	verifyPasskeyChallenge
 } = require('../utils/credentials.js');
-const { throwError } = require('../utils/errors.js');
+const { throwError, generateError } = require('../utils/errors.js');
 
 const login = async function({ email, password }) {
 	try {
@@ -39,12 +39,27 @@ const requestLoginWithPasskey = async function ({ agent, referer, ip}) {
 	}
 }
 
-const loginWithPasskey = async function ({ id, response: { userHandle }}, challenge) {
+const loginWithPasskey = async function ({ passkey, challenge }, client) {
 	try {
-		const { agent, referer, ip } = verifyPasskeyChallenge (challenge);
+		if (!passkey || !challenge) {
+			throw generateError('Unauthorized', 'Missing passkey/challenge', 401);
+		}
+
+		const { agent, referer, ip } = await verifyPasskeyChallenge (challenge);
+
+		// If the one who request the challenge is not the same as the one who is trying to log, reject the request
+		if (client.agent !== agent || client.referer !== referer || client.ip !== ip) {
+			throw generateError('Unauthorized', 'Invalid passkey challenge', 401);
+		}
+
+		const { id: passkeyId, response: passkeyResponse } = passkey;
+
+		if (!passkeyId || !passkeyResponse || !passkeyResponse.userHandle) {
+			throw generateError('Unauthorized', 'Invalid passkey', 401);
+		}
 
 		try {
-			const user = await userService.loginWithPasskey(id, userHandle, challenge);
+			const user = await userService.loginWithPasskey(passkeyId, passkeyResponse.userHandle, challenge);
 		
 			return {
 				status: 200,

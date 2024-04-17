@@ -10,6 +10,14 @@ const {
 	getInformation
 } = require('../../controllers/userController.js');
 
+const extractClient = function({ headers, connection }) {
+	return {
+		agent: headers['user-agent'],
+		referer: headers['referer'],
+		ip: headers['x-forwarded-for'] || connection.remoteAddress,
+	};
+}
+
 module.exports = function (app) {
 	app
 	.route('/users/login')
@@ -24,11 +32,7 @@ module.exports = function (app) {
 	app
 	.route('/users/login-passkey')
 	.get(async ({ headers, connection }, response) => {
-		var client = {
-			agent: headers['user-agent'],
-			referer: headers['referrer'],
-			ip: headers['x-forwarded-for'] || connection.remoteAddress,
-		  };
+		var client = extractClient({ headers, connection });
 		  
 		const { status, data } = await requestLoginWithPasskey(client);
 
@@ -39,8 +43,10 @@ module.exports = function (app) {
 
 	app
 	.route('/users/login-passkey')
-	.post(async ({ body }, response) => {
-		const { status, data } = await loginWithPasskey(body);
+	.post(async ({ headers, connection, body }, response) => {
+		var client = extractClient({ headers, connection });
+
+		const { status, data } = await loginWithPasskey(body, client);
 
 		response
 			.status(status)

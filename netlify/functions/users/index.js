@@ -2,6 +2,7 @@
 
 const {
     login,
+    requestLoginWithPasskey,
     loginWithPasskey,
     verifyMFA,
     register,
@@ -22,7 +23,32 @@ const cors_options = async function (request) {
     }
 }
 
-const users_get = async function ({ headers }) {
+const extractClient = function({ headers }) {
+	return {
+		agent: headers['user-agent'],
+		referer: headers['referer'] || headers['host'],
+		ip: headers['x-forwarded-for'],
+	};
+}
+
+const users_get = async function ({ headers, path }) {
+    // Check path if it contains an action
+    const action = path.split('users/')[1];
+
+    if (action) {
+        if (action === 'login-passkey') {
+            var client = extractClient({ headers });
+		  
+            const { status, data } = await requestLoginWithPasskey(client);
+
+            return {
+                statusCode: status,
+                ...CORS_HEADERS,
+                body: JSON.stringify(data)
+            };
+        }
+    }
+        
     const { status, data } = await getInformation(headers);
 
     return {
@@ -42,7 +68,7 @@ const users_put = async function ({ headers, body }) {
     };
 }
 
-const users_post = async function ({ headers, path, body }) {
+const users_post = async function ({ headers, connection, path, body }) {
     // Check path if it contains an action
     const action = path.split('users/')[1];
 
@@ -58,7 +84,8 @@ const users_post = async function ({ headers, path, body }) {
         }
 
         if (action === 'login-passkey') {
-            const { status, data } = await loginWithPasskey(JSON.parse(body));
+            var client = extractClient({ headers, connection });
+            const { status, data } = await loginWithPasskey(JSON.parse(body), client);
 
             return {
                 statusCode: status,

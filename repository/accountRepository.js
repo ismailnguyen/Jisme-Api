@@ -3,8 +3,6 @@
 const { db_accounts_collection } = require('../utils/config.js');
 const repository = require('./ports/repositoryPort.js');
 
-const db_encrypted_accounts_collection = 'encrypted_accounts';
-
 const findOne = async function ({ query, fields }) {
     return await repository.findOne(db_accounts_collection, {
         filter: query,
@@ -35,7 +33,7 @@ const insertOne = async function (value) {
 }
 
 const insertMultiple = async function (values) {
-    return await repository.insertMultiple(db_encrypted_accounts_collection, {
+    return await repository.insertMultiple(db_accounts_collection, {
         documents: values
     });
 }
