@@ -1,23 +1,25 @@
 'use strict';
 
-const { db_accounts_collection } = require('../utils/config.js');
+const {
+    db_accounts_collection: collection
+} = require('../utils/config.js');
 const repository = require('./ports/repositoryPort.js');
 
 const findOne = async function ({ query, fields }) {
-    return await repository.findOne(db_accounts_collection, {
+    return await repository.findOne(collection, {
         filter: query,
         projection: fields
     });
 }
 
 const count = async function ({ query }) {
-    return await repository.count(db_accounts_collection, {
+    return await repository.count(collection, {
         filter: query
     });
 }
 
 const findAll = async function ({ query, fields, max, offset, sortBy }) {
-    return await repository.findAll(db_accounts_collection, {
+    return await repository.findAll(collection, {
         filter: query,
         projection: fields,
         limit: max,
@@ -27,26 +29,26 @@ const findAll = async function ({ query, fields, max, offset, sortBy }) {
 }
 
 const insertOne = async function (value) {
-    return await repository.insertOne(db_accounts_collection, {
+    return await repository.insertOne(collection, {
         document: value
     });
 }
 
 const insertMultiple = async function (values) {
-    return await repository.insertMultiple(db_accounts_collection, {
+    return await repository.insertMultiple(collection, {
         documents: values
     });
 }
 
 const updateOne = async function ({ query, newValue }) {
-    return await repository.updateOne(db_accounts_collection, {
+    return await repository.updateOne(collection, {
         filter: query,
         update: newValue
     });
 }
 
 const deleteOne = async function ({ query }) {
-    return await repository.deleteOne(db_accounts_collection, {
+    return await repository.deleteOne(collection, {
         filter: query
     });
 }

@@ -1,12 +1,12 @@
 'use strict';
 
 const {
-    db_users_collection: collection
+    db_users_activity_log_collection: collection
 } = require('../utils/config.js');
 const repository = require('./ports/repositoryPort.js');
 
-const findOne = async function ({ query, fields }) {
-    return await repository.findOne(collection, {
+const findAll = async function ({ query, fields }) {
+    return await repository.findAll(collection, {
         filter: query,
         projection: fields
     });
@@ -18,13 +18,13 @@ const insertOne = async function (value) {
     });
 }
 
-const updateOne = async function ({ query, newValue }) {
-    return await repository.updateOne(collection, {
+const deleteOne = async function ({ query, newValue }) {
+    return await repository.deleteOne(collection, {
         filter: query,
         update: newValue
     });
 }
 
-exports.findOne = findOne;
+exports.findAll = findAll;
 exports.insertOne = insertOne;
-exports.updateOne = updateOne;
+exports.deleteOne = deleteOne;

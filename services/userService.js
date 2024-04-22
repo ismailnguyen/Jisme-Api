@@ -12,10 +12,15 @@ const {
     fakeUser
 } = require('../utils/credentials.js');
 const {
-    findOne,
-    updateOne,
-    insertOne
+    findOne: findUser,
+    updateOne: updateUser,
+    insertOne: insertUser
 } = require('../repository/userRepository.js');
+const {
+    findAll: findAllActivities,
+    insertOne: logActivity,
+    deleteOne: deleteActivity
+} = require('../repository/userActivitiesRepository.js');
 const {
     hash,
     encrypt,
@@ -30,7 +35,7 @@ const register = async function({ email, password }, client) {
 
     // Check first if user already exists
     try {
-        const existingUser = await findOne({
+        const existingUser = await findUser({
             query: { email: email }
         });
 
@@ -58,7 +63,7 @@ const register = async function({ email, password }, client) {
         };
 
         try {
-            const registeredUser = await insertOne(userToRegister);
+            const registeredUser = await insertUser(userToRegister);
 
             return {
                 _id: registeredUser._id,
@@ -142,7 +147,7 @@ const requestLogin = async function(email, { agent, referer, ip}) {
     }
 
     try {
-        const foundUser = await findOne({
+        const foundUser = await findUser({
             query: { 
                 email: encrypt(email)
             }
@@ -189,7 +194,7 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
     let hashedPassword = hash(password);
 
     try {
-        const foundUser = await findOne({
+        const foundUser = await findUser({
             query: { 
                 uuid: encrypt(uuid),
                 password: encrypt(hashedPassword)
@@ -247,7 +252,7 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
     }
 
     try {
-        const foundUser = await findOne({
+        const foundUser = await findUser({
             query: { 
                 uuid: encrypt(uuid),
                 email: encrypt(email)
@@ -283,7 +288,7 @@ const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { age
     }
 
     try {
-        const foundUser = await findOne({
+        const foundUser = await findUser({
             query: { 
                 uuid: encrypt(userId)
             }
@@ -315,10 +320,15 @@ const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { age
 
 const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
     try {
-        // TODO:
         // Log clients informations into acvitiy logs
-        // agent, referer, ip
-        // await logActivity({ uuid, agent, referer, ip });
+        await logActivity({
+            uuid: encrypt(uuid),
+            action: encrypt('login'),
+            agent: encrypt(agent),
+            referer: encrypt(referer),
+            ip: encrypt(ip),
+            activity_date: new Date().toISOString()
+        });
 
         // Save new token on database
         return await update({ email: email, uuid: uuid }, {
@@ -352,7 +362,7 @@ const update = async function({ email, uuid }, payload) {
         const encryptedEmail = encrypt(email);
         const encryptedUuid = encrypt(uuid);
 
-        const foundUser = await findOne({
+        const foundUser = await findUser({
             query: {
                 email: encryptedEmail,
                 uuid: encryptedUuid
@@ -382,7 +392,7 @@ const update = async function({ email, uuid }, payload) {
         };
         
         try {
-            await updateOne({
+            await updateUser({
                 query: {
                     email: encryptedEmail,
                     uuid: encryptedUuid
@@ -390,7 +400,7 @@ const update = async function({ email, uuid }, payload) {
                 newValue: userToUpdate
             });
     
-            // use foundUser or userToUpdate to get the updated user because updateOne doesn't return the updated user
+            // use foundUser or userToUpdate to get the updated user because updateUser doesn't return the updated user
             return {
                 email: email,
                 uuid: uuid,
@@ -422,7 +432,7 @@ const getInformation = async function({ email, uuid }) {
     }
 
     try {
-        const foundUser = await findOne({
+        const foundUser = await findUser({
             query: {
                 email: encrypt(email),
                 uuid: encrypt(uuid)
@@ -432,6 +442,12 @@ const getInformation = async function({ email, uuid }) {
         if (!foundUser) {
 			throw generateError('Error', 'User not found', 404);
 		}
+
+        const activities = await findAllActivities({
+            query: {
+                uuid: encrypt(uuid)
+            }
+        });
 
         return {
             email: decrypt(foundUser.email),
@@ -443,7 +459,14 @@ const getInformation = async function({ email, uuid }) {
             isMFAEnabled: foundUser.isMFAEnabled,
             totp_secret: decrypt(foundUser.totp_secret),
             public_encryption_key: decrypt(foundUser.public_encryption_key),
-            passkeys: foundUser.passkeys
+            passkeys: foundUser.passkeys,
+            activities: activities.map(a => ({
+                action: decrypt(a.action),
+                agent: decrypt(a.agent),
+                referer: decrypt(a.referer),
+                ip: decrypt(a.ip),
+                activity_date: a.activity_date
+            }))
         };
     }
     catch (error) {

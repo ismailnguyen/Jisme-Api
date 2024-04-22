@@ -16,6 +16,7 @@ module.exports = {
 
     db_data_source: process.env.DB_DATA_SOURCE,
     db_users_collection: process.env.DB_USERS_COLLECTION,
+    db_users_activity_log_collection: process.env.DB_USERS_ACTIVITY_LOG_COLLECTION,
     db_accounts_collection: process.env.DB_ACCOUNTS_COLLECTION,
     
     port: process.env.PORT,
