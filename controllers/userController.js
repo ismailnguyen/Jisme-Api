@@ -28,10 +28,10 @@ const login = async function({ email }, { agent, referer, ip }) {
 // Client (agent, referer, ip) is required here to log login activities
 const verifyPassword = async function({ authorization }, { password }, { agent, referer, ip }) {
 	try {
-		const { uuid, step } = await verifyToken(authorization);
+		const { uuid } = await verifyToken(authorization);
 
-		// The step should be request_password, otherwise reject
-		if (!uuid || step !== 'request_password') {
+		// No need to verify step here as we can provide password from different step
+		if (!uuid) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 

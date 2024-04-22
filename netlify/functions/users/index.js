@@ -3,6 +3,7 @@
 const {
     login,
     requestLoginWithPasskey,
+    verifyPassword,
     verifyPasskey,
     verifyOTP,
     register,
@@ -85,7 +86,8 @@ const users_post = async function ({ headers, connection, path, body }) {
         }
 
         if (action === 'login/password') {
-            const { status, data } = await login(JSON.parse(body));
+            var client = extractClient({ headers, connection });
+            const { status, data } = await verifyPassword(headers, JSON.parse(body), client);
 
             return {
                 statusCode: status,
