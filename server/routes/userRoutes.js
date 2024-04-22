@@ -2,9 +2,10 @@
 
 const {
 	login,
+	verifyPassword,
 	requestLoginWithPasskey,
-	loginWithPasskey,
-	verifyMFA,
+	verifyPasskey,
+	verifyOTP,
 	register,
 	update,
 	getInformation
@@ -21,8 +22,10 @@ const extractClient = function({ headers, connection }) {
 module.exports = function (app) {
 	app
 	.route('/users/login')
-	.post(async ({ body }, response) => {
-		const { status, data } = await login(body);
+	.post(async ({ headers, connection, body }, response) => {
+		var client = extractClient({ headers, connection });
+
+		const { status, data } = await login(body, client);
 
 		response
 			.status(status)
@@ -30,7 +33,19 @@ module.exports = function (app) {
 	});
 
 	app
-	.route('/users/login-passkey')
+	.route('/users/login/password')
+	.post(async ({ headers, connection, body }, response) => {
+		var client = extractClient({ headers, connection });
+
+		const { status, data } = await verifyPassword(headers, body, client);
+
+		response
+			.status(status)
+			.json(data);
+	});
+
+	app
+	.route('/users/login/passkey')
 	.get(async ({ headers, connection }, response) => {
 		var client = extractClient({ headers, connection });
 		  
@@ -42,11 +57,11 @@ module.exports = function (app) {
 	});
 
 	app
-	.route('/users/login-passkey')
+	.route('/users/login/passkey')
 	.post(async ({ headers, connection, body }, response) => {
 		var client = extractClient({ headers, connection });
 
-		const { status, data } = await loginWithPasskey(body, client);
+		const { status, data } = await verifyPasskey(body, client);
 
 		response
 			.status(status)
@@ -54,9 +69,11 @@ module.exports = function (app) {
 	});
 
 	app
-	.route('/users/verify-mfa')
-	.post(async ({ headers, body }, response) => {
-		const { status, data } = await verifyMFA(headers, body);
+	.route('/users/login/otp')
+	.post(async ({ headers, connection, body }, response) => {
+		var client = extractClient({ headers, connection });
+
+		const { status, data } = await verifyOTP(headers, body, client);
 
 		response
 			.status(status)

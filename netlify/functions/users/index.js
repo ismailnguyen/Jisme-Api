@@ -3,8 +3,8 @@
 const {
     login,
     requestLoginWithPasskey,
-    loginWithPasskey,
-    verifyMFA,
+    verifyPasskey,
+    verifyOTP,
     register,
     update,
     getInformation
@@ -23,7 +23,7 @@ const cors_options = async function (request) {
     }
 }
 
-const extractClient = function({ headers }) {
+const extractClient = function ({ headers }) {
 	return {
 		agent: headers['user-agent'],
 		referer: headers['referer'] || headers['host'],
@@ -36,7 +36,7 @@ const users_get = async function ({ headers, path }) {
     const action = path.split('users/')[1];
 
     if (action) {
-        if (action === 'login-passkey') {
+        if (action === 'login/passkey') {
             var client = extractClient({ headers });
 		  
             const { status, data } = await requestLoginWithPasskey(client);
@@ -74,6 +74,17 @@ const users_post = async function ({ headers, connection, path, body }) {
 
     if (action) {
         if (action === 'login') {
+            var client = extractClient({ headers, connection });
+            const { status, data } = await login(JSON.parse(body), client);
+
+            return {
+                statusCode: status,
+                ...CORS_HEADERS,
+                body: JSON.stringify(data)
+            };
+        }
+
+        if (action === 'login/password') {
             const { status, data } = await login(JSON.parse(body));
 
             return {
@@ -83,9 +94,9 @@ const users_post = async function ({ headers, connection, path, body }) {
             };
         }
 
-        if (action === 'login-passkey') {
+        if (action === 'login/passkey') {
             var client = extractClient({ headers, connection });
-            const { status, data } = await loginWithPasskey(JSON.parse(body), client);
+            const { status, data } = await verifyPasskey(JSON.parse(body), client);
 
             return {
                 statusCode: status,
@@ -94,8 +105,9 @@ const users_post = async function ({ headers, connection, path, body }) {
             };
         }
 
-        if (action === 'verify-mfa') {
-            const { status, data } = await verifyMFA(headers, JSON.parse(body));
+        if (action === 'login/otp') {
+            var client = extractClient({ headers, connection });
+            const { status, data } = await verifyOTP(headers, JSON.parse(body), client);
 
             return {
                 statusCode: status,

@@ -9,7 +9,8 @@ const {
     generateSignedAccessToken,
     isTotpValid,
     generateTotpSecret,
-    generatePasskeyChallenge
+    generatePasskeyChallenge,
+    fakeUser
 } = require('../utils/credentials.js');
 const {
     findOne,
@@ -38,15 +39,23 @@ const register = async function(email, password) {
 			throw generateError('Error', 'User already exists', 403);
 		}
 
+        const generatedUuid = hash(email + password); // Generate unique id for user
+        const hashedPassword = hash(password); // Hash user password with SHA256 algorithm
+        const today = new Date().toISOString();
+
         let userToRegister = {
-            uuid: hash(email + password), // Generate unique id for user
+            uuid: generatedUuid,
             email: email,
-            created_date: new Date().toISOString(),
-            last_update_date: new Date().toISOString(),
-            password: hash(password), // Hash user password with SHA256 algorithm
-            token: generateUnsignedAccessToken(userToRegister), // Generate temporary unique token for user
+            created_date: today,
+            last_update_date: today,
+            password: hashedPassword,
+            token: generateUnsignedAccessToken({
+                email: email,
+                uuid: generatedUuid,
+                step: 'register'
+            }), // Generate temporary unique token for user
             totp_secret: generateTotpSecret(), // Generate TOTP secret for MFA
-            public_encryption_key: generatePublicKey(email, password), // Generate public encryption key for user
+            public_encryption_key: generatePublicKey(email, hashedPassword), // Generate public encryption key for user
         };
 
         try {
@@ -73,9 +82,107 @@ const register = async function(email, password) {
     }
 }
 
-const login = async function(email, password) {
-    if (!email || !password) {
-		throw generateError('Invalid user input', 'Must provide an email and password.', 400);
+const requestPassKeyVerification = ({ email, uuid, isOtpRequired, hasPasskey }) => {
+    return {
+        email: decrypt(email),
+        token: generateUnsignedAccessToken({
+            email: decrypt(email),
+            uuid: decrypt(uuid),
+            step: 'request_passkey'
+        }),
+        isPasswordRequired: !hasPasskey, // if there is a passkey, password becomes not mandatory
+        isOtpRequired: isOtpRequired,
+        hasPasskey: hasPasskey,
+        next: {
+            step: 'verify_passkey',
+            url: '/login/passkey'
+        }
+    };
+}
+
+const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPasskey }) => {
+    return {
+        email: decrypt(email),
+        token: generateUnsignedAccessToken({
+            email: decrypt(email),
+            uuid: decrypt(uuid),
+            step: 'request_otp'
+        }),
+        avatarUrl: decrypt(avatarUrl),
+        isPasswordRequired: isOtpRequired && !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
+        isOtpRequired: isOtpRequired,
+        hasPasskey: hasPasskey,
+        next: {
+            step: 'verify_otp',
+            url: '/login/otp'
+        }
+    };
+}
+
+const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey }) => {
+    return {
+        email: decrypt(email),
+        token: generateUnsignedAccessToken({
+            email: decrypt(email),
+            uuid: decrypt(uuid),
+            step: 'request_password'
+        }),
+        isPasswordRequired: isOtpRequired && !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
+        isOtpRequired: isOtpRequired,
+        hasPasskey: hasPasskey,
+        next: {
+            step: 'verify_password',
+            url: '/login/password'
+        }
+    };
+}
+
+const requestLogin = async function(email, { agent, referer, ip}) {
+    if (!email) {
+		throw generateError('Invalid user input', 'Must provide an email.', 400);
+    }
+
+    try {
+        const foundUser = await findOne({
+            query: { 
+                email: encrypt(email)
+            }
+        });
+
+        // If given user is not found, return a fake user to avoid timing attacks
+        if (!foundUser) {
+			return fakeUser(email);
+		}
+
+        const hasPasskey = foundUser.passkeys && foundUser.passkeys.length > 0;
+        const hasMFA = foundUser.isMFAEnabled;
+
+        // If user has passkey, request passkey login
+        if (hasPasskey) {
+            return requestPassKeyVerification({
+                email: foundUser.email,
+                uuid: foundUser.uuid,
+                isOtpRequired: hasMFA,
+                hasPasskey: hasPasskey
+            });
+        }
+
+        // Otherwise request password login
+        return requestPasswordVerification({
+            email: foundUser.email,
+            uuid: foundUser.uuid,
+            isOtpRequired: hasMFA,
+            hasPasskey: hasPasskey
+        });
+    }
+    catch (error) {
+        throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
+    }
+}
+
+const verifyPassword = async function(uuid, password, { agent, referer, ip }) {
+    if (!uuid || !password) {
+		throw generateError('Invalid user input', 'Must provide user password.', 400);
     }
 
     let hashedPassword = hash(password);
@@ -83,7 +190,7 @@ const login = async function(email, password) {
     try {
         const foundUser = await findOne({
             query: { 
-                email: encrypt(email),
+                uuid: encrypt(uuid),
                 password: encrypt(hashedPassword)
             }
         });
@@ -104,18 +211,49 @@ const login = async function(email, password) {
             throw generateError('Unauthorized', 'Too many login attempt. Please retry later.', 401);
         }
 
-        return {
-            email: decrypt(foundUser.email),
-            token: generateUnsignedAccessToken({
-                email: decrypt(foundUser.email),
-                uuid: decrypt(foundUser.uuid)
-            }),
-            avatarUrl: decrypt(foundUser.avatarUrl),
-            isMFARequired: foundUser.isMFAEnabled
-        };
+        const hasMFA = foundUser.isMFAEnabled;
+        const hasPasskey = foundUser.passkeys && foundUser.passkeys.length > 0;
+
+        // If user has MFA, request MFA login
+        if (hasMFA) {
+            return requestOTPVerification({
+                email: foundUser.email,
+                uuid: foundUser.uuid,
+                avatarUrl: foundUser.avatarUrl,
+                isOtpRequired: hasMFA,
+                hasPasskey: hasPasskey
+            });
+        }
+
+        return await login(
+            { email: decrypt(foundUser.email), uuid: decrypt(foundUser.uuid) },
+            { agent, referer, ip }
+        );
     }
     catch (error) {
         throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
+    }
+}
+
+const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
+    try {
+        // TODO:
+        // Log clients informations into acvitiy logs
+        // agent, referer, ip
+        // await logActivity({ uuid, agent, referer, ip });
+
+        // Save new token on database
+        return await update({ email: email, uuid: uuid }, {
+            // Generate access token
+            token: generateSignedAccessToken({
+                email: email,
+                uuid: uuid
+            }, isExtendedSession),
+            last_login_date: new Date().toISOString()
+        });
+    }
+    catch (error) {
+        throw generateError('User not found', error.reason || error.message, 404);
     }
 }
 
@@ -134,7 +272,7 @@ const requestLoginWithPasskey = async function({ agent, referer, ip}) {
     }
 }
 
-const loginWithPasskey = async function(passkeyId, userId, challenge) {
+const verifyPasskey = async function(passkeyId, userId, { agent, referer, ip }) {
     if (!passkeyId || !userId) {
 		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
     }
@@ -156,25 +294,21 @@ const loginWithPasskey = async function(passkeyId, userId, challenge) {
 			throw generateError('Error', 'Invalid passkey', 401);
         }
 
-        const decryptedEmail = decrypt(foundUser.email);
-        const decryptedUuid = decrypt(foundUser.uuid);
-
-        // Save new token on database
-        return await update({ email: decryptedEmail, uuid: decryptedUuid }, {
-            // Generate access token
-            token: generateSignedAccessToken({
-                email: decryptedEmail,
-                uuid: decryptedUuid
-            }, false),
-            last_login_date: new Date().toISOString()
-        });
+        return await login(
+            {
+                email: decrypt(foundUser.email),
+                uuid: decrypt(foundUser.uuid),
+                isExtendedSession: false
+            },
+            { agent, referer, ip }
+        );
     }
     catch (error) {
         throw generateError('User not found', error.reason || error.message, 404);
     }
 }
 
-const verifyMFA = async function({ email, uuid }, isExtendedSession, totpToken) {
+const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, { agent, referer, ip }) {
     if (!totpToken) {
 		throw generateError('Invalid user input', 'Must provide a TOTP token.', 400);
     }
@@ -191,24 +325,19 @@ const verifyMFA = async function({ email, uuid }, isExtendedSession, totpToken) 
 			throw generateError('Error', 'User not found', 404);
 		}
 
-        let user = foundUser;
-        
-        if (!isTotpValid(totpToken, decrypt(user.totp_secret))) {
+        const isTotpValidResult = isTotpValid(totpToken, decrypt(foundUser.totp_secret));
+        if (!isTotpValidResult) {
 		    throw generateError('Invalid user input', 'Invalid TOTP token.', 401);
         }
 
-        const decryptedEmail = decrypt(user.email);
-        const decryptedUuid = decrypt(user.uuid);
-
-        // Save new token on database
-        return await update({ email: decryptedEmail, uuid: decryptedUuid }, {
-            // Generate access token
-            token: generateSignedAccessToken({
-                email: decryptedEmail,
-                uuid: decryptedUuid
-            }, isExtendedSession),
-            last_login_date: new Date().toISOString()
-        });
+        return await login(
+            {
+                email: decrypt(foundUser.email),
+                uuid: decrypt(foundUser.uuid),
+                isExtendedSession: isExtendedSession
+            },
+            { agent, referer, ip }
+        );
     }
     catch (error) {
         throw generateError(error.name || error.message || 'User not found', error.reason, error.code || 404);
@@ -227,9 +356,6 @@ const update = async function({ email, uuid }, payload) {
     try {
         const encryptedEmail = encrypt(email);
         const encryptedUuid = encrypt(uuid);
-
-        // const decryptedEmail = decrypt(email);
-        // const decryptedUuid = decrypt(uuid);
 
         const foundUser = await findOne({
             query: {
@@ -331,10 +457,12 @@ const getInformation = async function({ email, uuid }) {
 }
 
 exports.register = register;
+exports.requestLogin = requestLogin;
 exports.login = login;
+exports.verifyPassword = verifyPassword;
 exports.requestLoginWithPasskey = requestLoginWithPasskey;
-exports.loginWithPasskey = loginWithPasskey;
-exports.verifyMFA = verifyMFA;
+exports.verifyPasskey = verifyPasskey;
+exports.verifyOTP = verifyOTP;
 exports.updateLastUpdatedDate = updateLastUpdatedDate;
 exports.update = update;
 exports.getInformation = getInformation;

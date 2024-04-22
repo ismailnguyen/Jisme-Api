@@ -28,11 +28,15 @@ const isTotpValid = function (totpToken, totpSecret) {
   }
 }
 
-const generateAccessToken = function (email, uuid, extendedExpiration, mfaValid) {
+// TODO: refactor passkey challenge verification with this
+// include client details to enforce security always
+// change mfaValid by isAuthorized
+const generateAccessToken = function ({ email, uuid, extendedExpiration, step, isAuthorized }) {
   return sign({
       email: email,
       uuid: uuid,
-      mfaValid: mfaValid,
+      step: step,
+      isAuthorized: isAuthorized,
     },
     token_master_secret,
     { 
@@ -41,12 +45,24 @@ const generateAccessToken = function (email, uuid, extendedExpiration, mfaValid)
   );
 }
 
-const generateUnsignedAccessToken = function ({ email, uuid}) {
-  return generateAccessToken(email, uuid, false, false);
+const generateUnsignedAccessToken = function ({ email, uuid, step }) {
+  return generateAccessToken({
+    email: email,
+    uuid: uuid,
+    step: step,
+    isAuthorized: false,
+    extendedExpiration: false
+  });
 }
 
 const generateSignedAccessToken = function ({ email, uuid}, extendedExpiration) {
-  return generateAccessToken(email, uuid, extendedExpiration, true);
+  return generateAccessToken({
+    email: email,
+    uuid: uuid,
+    step: 'loggedIn',
+    isAuthorized: true,
+    extendedExpiration: extendedExpiration
+  });
 }
 
 const verifyToken = async function (authorization) {
@@ -57,12 +73,13 @@ const verifyToken = async function (authorization) {
   }
 
   try {
-    const { email, uuid, mfaValid } = await verify(accessToken, token_master_secret);
+    const { email, uuid, step, isAuthorized } = await verify(accessToken, token_master_secret);
   
     return {
       email,
       uuid,
-      mfaValid
+      step,
+      isAuthorized
     };
   }
   catch (error) {
@@ -89,7 +106,6 @@ const verifyPasskeyChallenge = async function (passkeyChallenge) {
   }
 }
 
-
 const generatePasskeyChallenge = function ({ agent, referer, ip }) {
   return sign({
       agent: agent,
@@ -104,6 +120,23 @@ const generatePasskeyChallenge = function ({ agent, referer, ip }) {
   );
 }
 
+const fakeUser = (email) => {
+  return { 
+    email: email,
+    token: generateUnsignedAccessToken({
+        email: email,
+        uuid: '00000000-0000-0000-0000-000000000000' // fake uuid
+    }),
+    isPasswordRequired: true,
+    isMFARequired: true,
+    hasPasskey: false,
+    next: {
+      step: 'verify_password',
+        url: '/login/password'
+    }
+  }
+}
+
 exports.generatePublicKey = generatePublicKey;
 exports.generateTotpSecret = generateTotpSecret;
 exports.isTotpValid = isTotpValid;
@@ -112,3 +145,4 @@ exports.generateSignedAccessToken = generateSignedAccessToken;
 exports.verifyToken = verifyToken;
 exports.verifyPasskeyChallenge = verifyPasskeyChallenge;
 exports.generatePasskeyChallenge = generatePasskeyChallenge;
+exports.fakeUser = fakeUser;

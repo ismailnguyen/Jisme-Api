@@ -7,10 +7,10 @@ const { throwError, generateError } = require('../utils/errors.js');
 
 const find = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		try {
@@ -35,10 +35,10 @@ const find = async function({ authorization }, { account_id }) {
 
 const findRecents  = async function({ authorization }) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		try {
@@ -62,10 +62,10 @@ const findRecents  = async function({ authorization }) {
 
 const findAll = async function({ authorization }, { limit, page }) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		const pageNumber = parseInt(page) || 0;
@@ -129,10 +129,10 @@ const findAll = async function({ authorization }, { limit, page }) {
 
 const create = async function({ authorization }, accountToCreate) {
 	try {
-		const { uuid, email, mfaValid } = await verifyToken(authorization);
+		const { uuid, email, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		try {
@@ -160,10 +160,10 @@ const create = async function({ authorization }, accountToCreate) {
 
 const update = async function({ authorization }, { account_id }, accountNewValue) {
 	try {
-		const { uuid, email, mfaValid } = await verifyToken(authorization);
+		const { uuid, email, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		try {
@@ -193,10 +193,10 @@ const update = async function({ authorization }, { account_id }, accountNewValue
 
 const remove = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid, email, mfaValid } = await verifyToken(authorization);
+		const { uuid, email, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		try {
@@ -227,10 +227,10 @@ const remove = async function({ authorization }, { account_id }) {
 
 const enableServerEncryption = async function({ authorization }, { accounts }) {
 	try {
-		const { uuid, mfaValid } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyToken(authorization);
 
-		if (!mfaValid) {
-			throw generateError('Unauthorized', 'MFA not valid', 401);
+		if (!isAuthorized) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
 		}
 
 		try {
