@@ -207,7 +207,7 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
 
         // Verify last login action
 		// if the user logged in less than X minutes ago (configured by env variables),
-		// don't allow him to log in again, and ask to wait 5 minutes before retrying
+		// don't allow him/her to log in again, and ask to wait 5 minutes before retrying
         // This extra check do not apply for passkey login because there is no brute force attack possible
 		const lastLogin = new Date(foundUser.last_login_date);
 
@@ -320,6 +320,22 @@ const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { age
 
 const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
     try {
+
+        // If there are more than 10 activities, delete the oldest one
+        const activities = await findAllActivities({
+            query: {
+                uuid: encrypt(uuid)
+            }
+        });
+
+        if (activities && activities.length >= 10) {
+            await deleteActivity({
+                query: {
+                    _id: activities[0]._id
+                }
+            });
+        }
+
         // Log clients informations into acvitiy logs
         await logActivity({
             uuid: encrypt(uuid),
