@@ -181,7 +181,7 @@ const requestLogin = async function(email, { agent, referer, ip}) {
     }
 }
 
-const verifyPassword = async function(uuid, password, { agent, referer, ip }) {
+const verifyPassword = async function(uuid, password, isExtendedSession, { agent, referer, ip }) {
     if (!uuid || !password) {
 		throw generateError('Invalid user input', 'Must provide user password.', 400);
     }
@@ -228,74 +228,16 @@ const verifyPassword = async function(uuid, password, { agent, referer, ip }) {
         }
 
         return await login(
-            { email: decrypt(foundUser.email), uuid: decrypt(foundUser.uuid) },
-            { agent, referer, ip }
-        );
-    }
-    catch (error) {
-        throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
-    }
-}
-
-const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
-    try {
-        // TODO:
-        // Log clients informations into acvitiy logs
-        // agent, referer, ip
-        // await logActivity({ uuid, agent, referer, ip });
-
-        // Save new token on database
-        return await update({ email: email, uuid: uuid }, {
-            // Generate access token
-            token: generateSignedAccessToken(
-                {
-                    email: email,
-                    uuid: uuid
-                },
-                isExtendedSession,
-                { agent, referer, ip }
-            ),
-            last_login_date: new Date().toISOString()
-        });
-    }
-    catch (error) {
-        throw generateError('User not found', error.reason || error.message, 404);
-    }
-}
-
-const verifyPasskey = async function(passkeyId, userId, { agent, referer, ip }) {
-    if (!passkeyId || !userId) {
-		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
-    }
-
-    try {
-        const foundUser = await findOne({
-            query: { 
-                uuid: encrypt(userId)
-            }
-        });
-
-        if (!foundUser) {
-			throw generateError('Error', 'User not found', 404);
-		}
-
-        const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkeyId);
-
-        if (!isPasskeyMatching) {
-			throw generateError('Error', 'Invalid passkey', 401);
-        }
-
-        return await login(
             {
                 email: decrypt(foundUser.email),
                 uuid: decrypt(foundUser.uuid),
-                isExtendedSession: false
+                isExtendedSession: isExtendedSession
             },
             { agent, referer, ip }
         );
     }
     catch (error) {
-        throw generateError('User not found', error.reason || error.message, 404);
+        throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
     }
 }
 
@@ -332,6 +274,68 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
     }
     catch (error) {
         throw generateError(error.name || error.message || 'User not found', error.reason, error.code || 404);
+    }
+}
+
+const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { agent, referer, ip }) {
+    if (!passkeyId || !userId) {
+		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
+    }
+
+    try {
+        const foundUser = await findOne({
+            query: { 
+                uuid: encrypt(userId)
+            }
+        });
+
+        if (!foundUser) {
+			throw generateError('Error', 'User not found', 404);
+		}
+
+        const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkeyId);
+
+        if (!isPasskeyMatching) {
+			throw generateError('Error', 'Invalid passkey', 401);
+        }
+
+        return await login(
+            {
+                email: decrypt(foundUser.email),
+                uuid: decrypt(foundUser.uuid),
+                isExtendedSession: isExtendedSession
+            },
+            { agent, referer, ip }
+        );
+    }
+    catch (error) {
+        throw generateError('User not found', error.reason || error.message, 404);
+    }
+}
+
+const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
+    try {
+        // TODO:
+        // Log clients informations into acvitiy logs
+        // agent, referer, ip
+        // await logActivity({ uuid, agent, referer, ip });
+
+        // Save new token on database
+        return await update({ email: email, uuid: uuid }, {
+            // Generate access token
+            token: generateSignedAccessToken(
+                {
+                    email: email,
+                    uuid: uuid
+                },
+                isExtendedSession,
+                { agent, referer, ip }
+            ),
+            last_login_date: new Date().toISOString()
+        });
+    }
+    catch (error) {
+        throw generateError('User not found', error.reason || error.message, 404);
     }
 }
 

@@ -25,7 +25,7 @@ const login = async function({ email }, { agent, referer, ip }) {
 }
 
 // Client (agent, referer, ip) is required here to log login activities
-const verifyPassword = async function({ authorization }, { password }, { agent, referer, ip }) {
+const verifyPassword = async function({ authorization }, { password, isExtendedSession }, { agent, referer, ip }) {
 	try {
 		const { uuid } = await verifyAccessToken(authorization);
 
@@ -38,6 +38,7 @@ const verifyPassword = async function({ authorization }, { password }, { agent, 
 			const user = await userService.verifyPassword(
 				uuid,
 				password,
+				isExtendedSession,
 				{ agent, referer, ip }
 			);
 	
@@ -55,7 +56,38 @@ const verifyPassword = async function({ authorization }, { password }, { agent, 
 	}
 }
 
-const verifyPasskey = async function ({ authorization }, { passkey }, newClient) {
+const verifyOTP = async function ({ authorization }, { totpToken, isExtendedSession }, { agent, referer, ip }) {
+	try {
+		const { email, uuid, step } = await verifyAccessToken(authorization);
+
+		// The step should be request_otp, otherwise reject
+		if (!uuid || !email || step !== 'request_otp') {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
+		}
+
+		try {
+			const user = await userService.verifyOTP(
+				{ email, uuid },
+				isExtendedSession,
+				totpToken,
+				{ agent, referer, ip }
+			);
+		
+			return {
+				status: 200,
+				data: user
+			};
+		}
+		catch (error) {
+			return throwError(error);
+		}
+	}
+	catch (error) {
+		return throwError(error);
+	}
+}
+
+const verifyPasskey = async function ({ authorization }, { passkey, isExtendedSession }, newClient) {
 	try {
 		if (!passkey) {
 			throw generateError('Unauthorized', 'Missing passkey/challenge', 401);
@@ -83,42 +115,12 @@ const verifyPasskey = async function ({ authorization }, { passkey }, newClient)
 			const user = await userService.verifyPasskey(
 				passkeyId,
 				passkeyResponse.userHandle,
+				isExtendedSession,
 				{
 					agent: agent,
 					referer: referer,
 					ip: ip
 				}
-			);
-		
-			return {
-				status: 200,
-				data: user
-			};
-		}
-		catch (error) {
-			return throwError(error);
-		}
-	}
-	catch (error) {
-		return throwError(error);
-	}
-}
-
-const verifyOTP = async function ({ authorization }, { totpToken, extendSession }, { agent, referer, ip }) {
-	try {
-		const { email, uuid, step } = await verifyAccessToken(authorization);
-
-		// The step should be request_otp, otherwise reject
-		if (!uuid || !email || step !== 'request_otp') {
-			throw generateError('Unauthorized', 'Invalid session.', 401);
-		}
-
-		try {
-			const user = await userService.verifyOTP(
-				{ email, uuid },
-				extendSession,
-				totpToken,
-				{ agent, referer, ip }
 			);
 		
 			return {
