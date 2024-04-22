@@ -9,7 +9,6 @@ const {
     generateSignedAccessToken,
     isTotpValid,
     generateTotpSecret,
-    generatePasskeyChallenge,
     fakeUser
 } = require('../utils/credentials.js');
 const {
@@ -24,7 +23,7 @@ const {
 } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
 
-const register = async function(email, password) {
+const register = async function({ email, password }, client) {
     if (!email || !password) {
 		throw generateError('Invalid user input', 'Must provide an email and password.', 400);
     }
@@ -53,7 +52,7 @@ const register = async function(email, password) {
                 email: email,
                 uuid: generatedUuid,
                 step: 'register'
-            }), // Generate temporary unique token for user
+            }, client), // Generate temporary unique token for user
             totp_secret: generateTotpSecret(), // Generate TOTP secret for MFA
             public_encryption_key: generatePublicKey(email, hashedPassword), // Generate public encryption key for user
         };
@@ -82,14 +81,14 @@ const register = async function(email, password) {
     }
 }
 
-const requestPassKeyVerification = ({ email, uuid, isOtpRequired, hasPasskey }) => {
+const requestPassKeyVerification = ({ email, uuid, isOtpRequired, hasPasskey, client }) => {
     return {
         email: decrypt(email),
         token: generateUnsignedAccessToken({
             email: decrypt(email),
             uuid: decrypt(uuid),
             step: 'request_passkey'
-        }),
+        }, client),
         isPasswordRequired: !hasPasskey, // if there is a passkey, password becomes not mandatory
         isOtpRequired: isOtpRequired,
         hasPasskey: hasPasskey,
@@ -100,14 +99,14 @@ const requestPassKeyVerification = ({ email, uuid, isOtpRequired, hasPasskey }) 
     };
 }
 
-const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPasskey }) => {
+const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPasskey, client }) => {
     return {
         email: decrypt(email),
         token: generateUnsignedAccessToken({
             email: decrypt(email),
             uuid: decrypt(uuid),
             step: 'request_otp'
-        }),
+        }, client),
         avatarUrl: decrypt(avatarUrl),
         isPasswordRequired: isOtpRequired && !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
         isOtpRequired: isOtpRequired,
@@ -119,14 +118,14 @@ const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPass
     };
 }
 
-const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey }) => {
+const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey, client }) => {
     return {
         email: decrypt(email),
         token: generateUnsignedAccessToken({
             email: decrypt(email),
             uuid: decrypt(uuid),
             step: 'request_password'
-        }),
+        }, client),
         isPasswordRequired: isOtpRequired && !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
         isOtpRequired: isOtpRequired,
         hasPasskey: hasPasskey,
@@ -151,7 +150,7 @@ const requestLogin = async function(email, { agent, referer, ip}) {
 
         // If given user is not found, return a fake user to avoid timing attacks
         if (!foundUser) {
-			return fakeUser(email);
+			return fakeUser(email, { agent, referer, ip });
 		}
 
         const hasPasskey = foundUser.passkeys && foundUser.passkeys.length > 0;
@@ -163,7 +162,8 @@ const requestLogin = async function(email, { agent, referer, ip}) {
                 email: foundUser.email,
                 uuid: foundUser.uuid,
                 isOtpRequired: hasMFA,
-                hasPasskey: hasPasskey
+                hasPasskey: hasPasskey,
+                client: { agent, referer, ip }
             });
         }
 
@@ -172,7 +172,8 @@ const requestLogin = async function(email, { agent, referer, ip}) {
             email: foundUser.email,
             uuid: foundUser.uuid,
             isOtpRequired: hasMFA,
-            hasPasskey: hasPasskey
+            hasPasskey: hasPasskey,
+            client: { agent, referer, ip }
         });
     }
     catch (error) {
@@ -221,7 +222,8 @@ const verifyPassword = async function(uuid, password, { agent, referer, ip }) {
                 uuid: foundUser.uuid,
                 avatarUrl: foundUser.avatarUrl,
                 isOtpRequired: hasMFA,
-                hasPasskey: hasPasskey
+                hasPasskey: hasPasskey,
+                client: { agent, referer, ip }
             });
         }
 
@@ -245,30 +247,19 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
         // Save new token on database
         return await update({ email: email, uuid: uuid }, {
             // Generate access token
-            token: generateSignedAccessToken({
-                email: email,
-                uuid: uuid
-            }, isExtendedSession),
+            token: generateSignedAccessToken(
+                {
+                    email: email,
+                    uuid: uuid
+                },
+                isExtendedSession,
+                { agent, referer, ip }
+            ),
             last_login_date: new Date().toISOString()
         });
     }
     catch (error) {
         throw generateError('User not found', error.reason || error.message, 404);
-    }
-}
-
-const requestLoginWithPasskey = async function({ agent, referer, ip}) {
-    try {
-        return {
-            challenge: generatePasskeyChallenge({ 
-                agent: agent, 
-                referer: referer, 
-                ip: ip
-            })
-        };
-    }
-    catch (error) {
-        throw generateError('User not found', error.message, 404);
     }
 }
 
@@ -460,7 +451,6 @@ exports.register = register;
 exports.requestLogin = requestLogin;
 exports.login = login;
 exports.verifyPassword = verifyPassword;
-exports.requestLoginWithPasskey = requestLoginWithPasskey;
 exports.verifyPasskey = verifyPasskey;
 exports.verifyOTP = verifyOTP;
 exports.updateLastUpdatedDate = updateLastUpdatedDate;

@@ -3,7 +3,6 @@
 const {
 	login,
 	verifyPassword,
-	requestLoginWithPasskey,
 	verifyPasskey,
 	verifyOTP,
 	register,
@@ -46,22 +45,10 @@ module.exports = function (app) {
 
 	app
 	.route('/users/login/passkey')
-	.get(async ({ headers, connection }, response) => {
-		var client = extractClient({ headers, connection });
-		  
-		const { status, data } = await requestLoginWithPasskey(client);
-
-		response
-			.status(status)
-			.json(data);
-	});
-
-	app
-	.route('/users/login/passkey')
 	.post(async ({ headers, connection, body }, response) => {
 		var client = extractClient({ headers, connection });
 
-		const { status, data } = await verifyPasskey(body, client);
+		const { status, data } = await verifyPasskey(headers, body, client);
 
 		response
 			.status(status)
@@ -82,8 +69,9 @@ module.exports = function (app) {
 
 	app
 	.route('/users/register')
-	.post(async ({ body }, response) => {
-		const { status, data } = await register(body);
+	.post(async ({ headers, connection, body }, response) => {
+		var client = extractClient({ headers, connection });
+		const { status, data } = await register(body, client);
 
 		response
 			.status(status)

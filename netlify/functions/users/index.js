@@ -2,7 +2,6 @@
 
 const {
     login,
-    requestLoginWithPasskey,
     verifyPassword,
     verifyPasskey,
     verifyOTP,
@@ -33,23 +32,6 @@ const extractClient = function ({ headers }) {
 }
 
 const users_get = async function ({ headers, path }) {
-    // Check path if it contains an action
-    const action = path.split('users/')[1];
-
-    if (action) {
-        if (action === 'login/passkey') {
-            var client = extractClient({ headers });
-		  
-            const { status, data } = await requestLoginWithPasskey(client);
-
-            return {
-                statusCode: status,
-                ...CORS_HEADERS,
-                body: JSON.stringify(data)
-            };
-        }
-    }
-        
     const { status, data } = await getInformation(headers);
 
     return {
@@ -69,14 +51,16 @@ const users_put = async function ({ headers, body }) {
     };
 }
 
-const users_post = async function ({ headers, connection, path, body }) {
+const users_post = async function ({ headers, path, body }) {
     // Check path if it contains an action
     const action = path.split('users/')[1];
 
+    const client = extractClient({ headers });
+    const jsonBody = JSON.parse(body);
+
     if (action) {
         if (action === 'login') {
-            var client = extractClient({ headers, connection });
-            const { status, data } = await login(JSON.parse(body), client);
+            const { status, data } = await login(jsonBody, client);
 
             return {
                 statusCode: status,
@@ -86,8 +70,7 @@ const users_post = async function ({ headers, connection, path, body }) {
         }
 
         if (action === 'login/password') {
-            var client = extractClient({ headers, connection });
-            const { status, data } = await verifyPassword(headers, JSON.parse(body), client);
+            const { status, data } = await verifyPassword(headers, jsonBody, client);
 
             return {
                 statusCode: status,
@@ -97,8 +80,7 @@ const users_post = async function ({ headers, connection, path, body }) {
         }
 
         if (action === 'login/passkey') {
-            var client = extractClient({ headers, connection });
-            const { status, data } = await verifyPasskey(JSON.parse(body), client);
+            const { status, data } = await verifyPasskey(headers, jsonBody, client);
 
             return {
                 statusCode: status,
@@ -108,8 +90,7 @@ const users_post = async function ({ headers, connection, path, body }) {
         }
 
         if (action === 'login/otp') {
-            var client = extractClient({ headers, connection });
-            const { status, data } = await verifyOTP(headers, JSON.parse(body), client);
+            const { status, data } = await verifyOTP(headers, jsonBody, client);
 
             return {
                 statusCode: status,
@@ -119,7 +100,7 @@ const users_post = async function ({ headers, connection, path, body }) {
         }
 
         if (action === 'register') {
-            const { status, data } = await register(JSON.parse(body));
+            const { status, data } = await register(jsonBody, client);
 
             return {
                 statusCode: status,

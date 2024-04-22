@@ -2,12 +2,12 @@
 
 const service = require('../services/accountService.js');
 const userService = require('../services/userService.js');
-const { verifyToken } = require('../utils/credentials.js');
+const { verifyAccessToken } = require('../utils/credentials.js');
 const { throwError, generateError } = require('../utils/errors.js');
 
 const find = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid, isAuthorized } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -35,7 +35,7 @@ const find = async function({ authorization }, { account_id }) {
 
 const findRecents  = async function({ authorization }) {
 	try {
-		const { uuid, isAuthorized } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -62,7 +62,7 @@ const findRecents  = async function({ authorization }) {
 
 const findAll = async function({ authorization }, { limit, page }) {
 	try {
-		const { uuid, isAuthorized } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -129,7 +129,7 @@ const findAll = async function({ authorization }, { limit, page }) {
 
 const create = async function({ authorization }, accountToCreate) {
 	try {
-		const { uuid, email, isAuthorized } = await verifyToken(authorization);
+		const { uuid, email, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -160,7 +160,7 @@ const create = async function({ authorization }, accountToCreate) {
 
 const update = async function({ authorization }, { account_id }, accountNewValue) {
 	try {
-		const { uuid, email, isAuthorized } = await verifyToken(authorization);
+		const { uuid, email, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -193,7 +193,7 @@ const update = async function({ authorization }, { account_id }, accountNewValue
 
 const remove = async function({ authorization }, { account_id }) {
 	try {
-		const { uuid, email, isAuthorized } = await verifyToken(authorization);
+		const { uuid, email, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -227,7 +227,7 @@ const remove = async function({ authorization }, { account_id }) {
 
 const enableServerEncryption = async function({ authorization }, { accounts }) {
 	try {
-		const { uuid, isAuthorized } = await verifyToken(authorization);
+		const { uuid, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);

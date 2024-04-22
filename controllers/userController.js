@@ -2,8 +2,7 @@
 
 const userService = require('../services/userService.js');
 const {
-	verifyToken,
-	verifyPasskeyChallenge
+	verifyAccessToken,
 } = require('../utils/credentials.js');
 const { throwError, generateError } = require('../utils/errors.js');
 
@@ -28,7 +27,7 @@ const login = async function({ email }, { agent, referer, ip }) {
 // Client (agent, referer, ip) is required here to log login activities
 const verifyPassword = async function({ authorization }, { password }, { agent, referer, ip }) {
 	try {
-		const { uuid } = await verifyToken(authorization);
+		const { uuid } = await verifyAccessToken(authorization);
 
 		// No need to verify step here as we can provide password from different step
 		if (!uuid) {
@@ -56,47 +55,27 @@ const verifyPassword = async function({ authorization }, { password }, { agent, 
 	}
 }
 
-const requestLoginWithPasskey = async function ({ agent, referer, ip }) {
+const verifyPasskey = async function ({ authorization }, { passkey }, newClient) {
 	try {
-		const passkeyOptions = await userService.requestLoginWithPasskey({ 
-			agent: agent, 
-			referer: referer, 
-			ip: ip
-		});
-	
-		return {
-			status: 200,
-			data: passkeyOptions
-		};
-	}
-	catch (error) {
-		return throwError(error);
-	}
-}
-
-const verifyPasskey = async function ({ passkey, challenge }, client) {
-	try {
-		if (!passkey || !challenge) {
+		if (!passkey) {
 			throw generateError('Unauthorized', 'Missing passkey/challenge', 401);
 		}
 
-		const { agent, referer, ip } = await verifyPasskeyChallenge (challenge);
+		const { uuid, step, client: { agent, referer, ip } } = await verifyAccessToken(authorization);
 
 		//If the one who request the challenge is not the same as the one who is trying to log, reject the request
-		if (client.agent !== agent || client.referer !== referer || client.ip !== ip) {
+		if (newClient.agent !== agent || newClient.referer !== referer || newClient.ip !== ip) {
 			throw generateError('Unauthorized', 'Invalid passkey challenge', 401);
 		}
 
-		// const { uuid, step } = await verifyToken(authorization);
-
-		// // The step should be request_passkey, otherwise reject
-		// if (!uuid || step !== 'request_passkey') {
-		// 	throw generateError('Unauthorized', 'Invalid session.', 401);
-		// }
+		// The step should be request_passkey, otherwise reject
+		if (!uuid || step !== 'request_passkey') {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
+		}
 
 		const { id: passkeyId, response: passkeyResponse } = passkey;
 
-		if (!passkeyId || !passkeyResponse || !passkeyResponse.userHandle) {
+		if (!passkeyId || !passkeyResponse || !passkeyResponse.userHandle || passkeyResponse.userHandle !== uuid) {
 			throw generateError('Unauthorized', 'Invalid passkey', 401);
 		}
 
@@ -127,7 +106,7 @@ const verifyPasskey = async function ({ passkey, challenge }, client) {
 
 const verifyOTP = async function ({ authorization }, { totpToken, extendSession }, { agent, referer, ip }) {
 	try {
-		const { email, uuid, step } = await verifyToken(authorization);
+		const { email, uuid, step } = await verifyAccessToken(authorization);
 
 		// The step should be request_otp, otherwise reject
 		if (!uuid || !email || step !== 'request_otp') {
@@ -158,7 +137,13 @@ const verifyOTP = async function ({ authorization }, { totpToken, extendSession 
 
 const register = async function({ email, password }) {
 	try {
-		const user = await userService.register(email, password);
+		const user = await userService.register(
+			{
+				email: email,
+				password: password
+			},
+			client
+		);
 	
 		return {
 			status: 201,
@@ -172,7 +157,7 @@ const register = async function({ email, password }) {
 
 const update = async function({ authorization }, payload) {
 	try {
-		const { email, uuid, isAuthorized } = await verifyToken(authorization);
+		const { email, uuid, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -208,7 +193,7 @@ const update = async function({ authorization }, payload) {
 
 const getInformation = async function({ authorization }) {
 	try {
-		const { email, uuid, isAuthorized } = await verifyToken(authorization);
+		const { email, uuid, isAuthorized } = await verifyAccessToken(authorization);
 
 		if (!isAuthorized) {
 			throw generateError('Unauthorized', 'Invalid session.', 401);
@@ -238,7 +223,6 @@ const getInformation = async function({ authorization }) {
 
 exports.login = login;
 exports.verifyPassword = verifyPassword;
-exports.requestLoginWithPasskey = requestLoginWithPasskey;
 exports.verifyPasskey = verifyPasskey;
 exports.verifyOTP = verifyOTP;
 exports.register = register;
