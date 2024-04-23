@@ -13,7 +13,7 @@ const {
 const extractClient = function({ headers, connection }) {
 	return {
 		agent: headers['user-agent'],
-		referer: headers['referer'],
+		referer: headers['origin'],
 		ip: headers['x-forwarded-for'] || connection.remoteAddress
 	};
 }

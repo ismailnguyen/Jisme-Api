@@ -26,7 +26,7 @@ const cors_options = async function (request) {
 const extractClient = function ({ headers }) {
 	return {
 		agent: headers['user-agent'],
-		referer: headers['referer'] || headers['host'],
+		referer: headers['host'],
 		ip: headers['x-forwarded-for']
 	};
 }
