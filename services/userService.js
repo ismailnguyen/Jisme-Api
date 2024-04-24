@@ -182,7 +182,7 @@ const requestLogin = async function(email, { agent, referer, ip}) {
         });
     }
     catch (error) {
-        throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
+        throw generateError(error.reason ? error.message : 'Error', error.reason || error.message, error.code || 404);
     }
 }
 
@@ -202,7 +202,7 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
         });
 
         if (!foundUser) {
-			throw generateError('Error', 'User not found', 404);
+			throw generateError('Unauthorized', 'User not found', 404);
 		}
 
         // Verify last login action
@@ -242,7 +242,7 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
         );
     }
     catch (error) {
-        throw generateError(error.reason ? error.message : 'User not found', error.reason || error.message, error.code || 404);
+        throw generateError(error.reason ? error.message : 'Error', error.reason || error.message, error.code || 404);
     }
 }
 
@@ -260,7 +260,7 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
         });
 
         if (!foundUser) {
-			throw generateError('Error', 'User not found', 404);
+			throw generateError('Unauthorized', 'User not found', 404);
 		}
 
         const isTotpValidResult = isTotpValid(totpToken, decrypt(foundUser.totp_secret));
@@ -278,7 +278,7 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
         );
     }
     catch (error) {
-        throw generateError(error.name || error.message || 'User not found', error.reason, error.code || 404);
+        throw generateError(error.name || error.message || 'Error', error.reason, error.code || 404);
     }
 }
 
@@ -295,13 +295,13 @@ const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { age
         });
 
         if (!foundUser) {
-			throw generateError('Error', 'User not found', 404);
+			throw generateError('Unauthorized', 'User not found', 404);
 		}
 
         const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkeyId);
 
         if (!isPasskeyMatching) {
-			throw generateError('Error', 'Invalid passkey', 401);
+			throw generateError('Unauthorized', 'Invalid passkey', 401);
         }
 
         return await login(
@@ -314,7 +314,7 @@ const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { age
         );
     }
     catch (error) {
-        throw generateError('User not found', error.reason || error.message, 404);
+        throw generateError(error.message || 'Error', error.reason || error.message, 404);
     }
 }
 
@@ -361,7 +361,7 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
         });
     }
     catch (error) {
-        throw generateError('User not found', error.reason || error.message, 404);
+        throw generateError(error.message || 'Error', error.reason || error.message, 404);
     }
 }
 
@@ -386,7 +386,7 @@ const update = async function({ email, uuid }, payload) {
         });
     
         if (!foundUser) {
-            throw generateError('Error', 'User not found', 404);
+            throw generateError('Unauthorized', 'User not found', 404);
         }
 
         //TODO: Allow user to specify a new email in 'payload'
@@ -438,7 +438,7 @@ const update = async function({ email, uuid }, payload) {
         }
     }
     catch(error) {
-        throw generateError('User not found', error.message, error.code || 404);
+        throw generateError(error.message || 'Error', error.message, error.code || 404);
     }
 }
 
@@ -456,7 +456,7 @@ const getInformation = async function({ email, uuid }) {
         });
 
         if (!foundUser) {
-			throw generateError('Error', 'User not found', 404);
+			throw generateError('Unauthorized', 'User not found', 404);
 		}
 
         const activities = await findAllActivities({
@@ -486,7 +486,7 @@ const getInformation = async function({ email, uuid }) {
         };
     }
     catch (error) {
-        throw generateError('User not found', error.message, error.code || 404);
+        throw generateError(error.message || 'Error', error.message, error.code || 404);
     }
 }
 
