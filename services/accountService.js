@@ -6,6 +6,7 @@ const {
     decrypt
  } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
+const userService = require('../services/userService.js');
 
 const encryptedFields = [
     'user_id',
@@ -147,7 +148,7 @@ const create = async function({ accountToCreate, user_id }) {
     }
 
     accountToCreate.user_id = user_id; // this will be encrypted on following lines
-    accountToCreate.created_date = new Date().toISOString();
+    accountToCreate.created_date = accountToCreate.created_date || new Date().toISOString(); // Override with server date if not provided
     accountToCreate.isServerEncrypted = true;
 
     // enforce server encryption for every account
@@ -163,6 +164,8 @@ const create = async function({ accountToCreate, user_id }) {
                 .filter(field => createdAccount[field])
                 .forEach(field => createdAccount[field] = decrypt(createdAccount[field]));
         }
+        
+        
 
         return createdAccount;
     }

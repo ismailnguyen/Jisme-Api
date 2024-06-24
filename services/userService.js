@@ -320,7 +320,6 @@ const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { age
 
 const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
     try {
-
         // If there are more than 10 activities, delete the oldest one
         const activities = await findAllActivities({
             query: {
@@ -365,9 +364,9 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
     }
 }
 
-const updateLastUpdatedDate = async function({ email, uuid }) {
+const updateLastUpdatedDate = async function({ email, uuid }, last_update_date) {
     let userToUpdate = {
-        last_update_date: new Date().toISOString(),
+        last_update_date: last_update_date || new Date().toISOString(),
     };
 
     update({ email: email, uuid: uuid }, userToUpdate);
@@ -384,7 +383,7 @@ const update = async function({ email, uuid }, payload) {
                 uuid: encryptedUuid
             }
         });
-    
+
         if (!foundUser) {
             throw generateError('Unauthorized', 'User not found', 404);
         }
