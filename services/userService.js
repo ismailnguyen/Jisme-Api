@@ -339,7 +339,7 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
             });
         }
 
-        let locationString = 'Not found';
+        let locationString = '';
         const location = await findLocationFromIp(ip);
         if (location && (location.city || location.country_name)) {
             locationString = `${ location.city ? location.city + ', ' : '' }${ location.country_name }`;
