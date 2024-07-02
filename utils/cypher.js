@@ -14,6 +14,10 @@ const hash = function (content){
 
 // encrypt the given content parameter using encryption_private_key as the encryption key
 const encrypt = function (content) {
+    if (!content) {
+        return '';
+    }
+
     const cipher = crypto.createCipheriv(algorithm, encryption_private_key, encryption_private_iv);
 
     // return encrypted content
@@ -25,6 +29,10 @@ const encrypt = function (content) {
 
 // decrypt the given content parameter using encryption_private_key as the encryption key
 const decrypt = function (content) {
+    if (!content) {
+        return '';
+    }
+
     const decipher = crypto.createDecipheriv(algorithm, encryption_private_key, encryption_private_iv);
 
     let decrypted = decipher.update(content, 'hex', 'utf8');

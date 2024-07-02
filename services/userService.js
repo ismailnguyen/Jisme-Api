@@ -4,6 +4,10 @@ const {
  } = require('../utils/config.js');
 
 const { 
+    findLocationFromIp
+} = require('../utils/location.js');
+
+const { 
     generatePublicKey,
     generateUnsignedAccessToken,
     generateSignedAccessToken,
@@ -335,6 +339,12 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
             });
         }
 
+        let locationString = 'Not found';
+        const location = await findLocationFromIp(ip);
+        if (location && (location.city || location.country_name)) {
+            locationString = `${ location.city ? location.city + ', ' : '' }${ location.country_name }`;
+        }
+
         // Log clients informations into acvitiy logs
         await logActivity({
             uuid: encrypt(uuid),
@@ -342,7 +352,8 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
             agent: encrypt(agent),
             referer: encrypt(referer),
             ip: encrypt(ip),
-            activity_date: new Date().toISOString()
+            activity_date: new Date().toISOString(),
+            location: encrypt(locationString)
         });
 
         // Save new token on database
@@ -480,7 +491,8 @@ const getInformation = async function({ email, uuid }) {
                 agent: decrypt(a.agent),
                 referer: decrypt(a.referer),
                 ip: decrypt(a.ip),
-                activity_date: a.activity_date
+                activity_date: a.activity_date,
+                location: decrypt(a.location)
             }))
         };
     }
