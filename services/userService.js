@@ -340,7 +340,9 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
         }
 
         let locationString = '';
-        const location = await findLocationFromIp(ip);
+        // If 'ip' contains multiple IPs, take the first one
+        let ipToUse = ip && ip.indexOf(',') > -1 ? ip.split(',')[0].trim() : ip;
+        const location = await findLocationFromIp(ipToUse);
         if (location && (location.city || location.country_name)) {
             locationString = `${ location.city ? location.city + ', ' : '' }${ location.country_name }`;
         }
