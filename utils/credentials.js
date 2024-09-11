@@ -81,8 +81,8 @@ const verifyAccessToken = async function (authorization) {
       isAuthorized,
       client: {
         agent: client && client.agent ? client.agent : 'Unknown',
-        referer:  client && client.referer ? client.referer : 'Unknown',
-        ip:  client && client.ip ? client.ip : 'Unknown'
+        referer: client && client.referer ? client.referer : 'Unknown',
+        ip: client && client.ip ? client.ip : 'Unknown'
       }
     };
   }
