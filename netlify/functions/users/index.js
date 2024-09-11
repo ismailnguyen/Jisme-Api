@@ -27,7 +27,7 @@ const extractClient = function ({ headers }, context) {
 	return {
 		agent: headers['user-agent'],
 		referer: headers['host'],
-		ip: context.ip || headers['x-forwarded-for']
+		ip: headers['x-nf-client-connection-ip']
 	};
 }
 
