@@ -16,22 +16,22 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS'
 }
 
-const cors_options = async function (request) {
+const cors_options = async function (request, context) {
     return {
         statusCode: 200,
         headers: CORS_HEADERS,
     }
 }
 
-const extractClient = function ({ headers }) {
+const extractClient = function ({ headers }, context) {
 	return {
 		agent: headers['user-agent'],
 		referer: headers['host'],
-		ip: headers['x-forwarded-for']
+		ip: context.ip || headers['x-forwarded-for']
 	};
 }
 
-const users_get = async function ({ headers, path }) {
+const users_get = async function ({ headers, path }, context) {
     const { status, data } = await getInformation(headers);
 
     return {
@@ -41,7 +41,7 @@ const users_get = async function ({ headers, path }) {
     };
 }
 
-const users_put = async function ({ headers, body }) {
+const users_put = async function ({ headers, body }, context) {
     const { status, data } = await update(headers, JSON.parse(body));
 
     return {
@@ -51,11 +51,11 @@ const users_put = async function ({ headers, body }) {
     };
 }
 
-const users_post = async function ({ headers, path, body }) {
+const users_post = async function ({ headers, path, body }, context) {
     // Check path if it contains an action
     const action = path.split('users/')[1];
 
-    const client = extractClient({ headers });
+    const client = extractClient({ headers }, context);
     const jsonBody = JSON.parse(body);
 
     if (action) {
@@ -126,7 +126,7 @@ exports.handler = async function (event, context) {
     };
 
     if (event.httpMethod in actions) {
-        return await actions[event.httpMethod](event);
+        return await actions[event.httpMethod](event, context);
     }
 
     return {
