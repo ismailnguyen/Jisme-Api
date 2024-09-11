@@ -97,6 +97,7 @@ const verifyPasskey = async function ({ authorization }, { passkey, isExtendedSe
 
 		//If the one who request the challenge is not the same as the one who is trying to log, reject the request
 		if (newClient.agent !== agent || newClient.ip !== ip) {
+			console.log('Client mismatch', newClient.agent, newClient.ip, agent, ip);
 			throw generateError('Unauthorized', 'Invalid passkey challenge', 401);
 		}
 
