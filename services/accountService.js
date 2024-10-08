@@ -6,7 +6,6 @@ const {
     decrypt
  } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
-const userService = require('../services/userService.js');
 
 const encryptedFields = [
     'user_id',

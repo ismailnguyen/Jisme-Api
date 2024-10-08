@@ -31,6 +31,7 @@ const {
     decrypt
 } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
+const accountService = require('../services/accountService.js');
 
 const register = async function({ email, password }, client) {
     if (!email || !password) {
@@ -78,7 +79,8 @@ const register = async function({ email, password }, client) {
                 // avatarUrl: registeredUser.avatarUrl, // This is not set during registration
                 token: registeredUser.token,
                 totp_secret: registeredUser.totp_secret, // This secret is only sent during registration to inform user
-                public_encryption_key: registeredUser.public_encryption_key
+                public_encryption_key: registeredUser.public_encryption_key,
+                hasAccounts: false,
             };
         }
         catch (error) {
@@ -358,6 +360,8 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
             location: encrypt(locationString)
         });
 
+        const hasAccounts = await accountService.count({ user_id: uuid }) > 0;
+
         // Save new token on database
         return await update({ email: email, uuid: uuid }, {
             // Generate access token
@@ -369,6 +373,7 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
                 isExtendedSession,
                 { agent, referer, ip }
             ),
+            hasAccounts: hasAccounts,
             last_login_date: new Date().toISOString()
         });
     }
@@ -416,7 +421,8 @@ const update = async function({ email, uuid }, payload) {
             last_login_date: payload.last_login_date || foundUser.last_login_date,
             avatarUrl: payload.avatarUrl ? encrypt(payload.avatarUrl) : foundUser.avatarUrl,
             passkeys: payload.passkeys || foundUser.passkeys,
-            token: payload.token ? encrypt(payload.token) : foundUser.token
+            token: payload.token ? encrypt(payload.token) : foundUser.token,
+            hasAccounts: !!payload.hasAccounts || !!foundUser.hasAccounts,
         };
         
         try {
@@ -439,6 +445,7 @@ const update = async function({ email, uuid }, payload) {
                 avatarUrl: decrypt(userToUpdate.avatarUrl),
                 isMFAEnabled: userToUpdate.isMFAEnabled,
                 passkeys: userToUpdate.passkeys,
+                hasAccounts: userToUpdate.hasAccounts,
 
                 // as these are not updated, there are only present in the first find request
                 totp_secret: decrypt(foundUser.totp_secret), 
@@ -477,6 +484,8 @@ const getInformation = async function({ email, uuid }) {
             }
         });
 
+        const hasAccounts = await accountService.count({ user_id: uuid }) > 0;
+
         return {
             email: decrypt(foundUser.email),
             uuid: decrypt(foundUser.uuid),
@@ -495,7 +504,8 @@ const getInformation = async function({ email, uuid }) {
                 ip: decrypt(a.ip),
                 activity_date: a.activity_date,
                 location: decrypt(a.location)
-            }))
+            })),
+            hasAccounts: hasAccounts
         };
     }
     catch (error) {
