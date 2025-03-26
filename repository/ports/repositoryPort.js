@@ -5,9 +5,13 @@ const { db_repository_type } = require('../../utils/config.js');
 let repository = null;
 if (db_repository_type === 'db') {
     repository = require('../adapters/dbAdapter.js');
-}
-else if (db_repository_type === 'file') {
+} else if (db_repository_type === 'api') {
     repository = require('../adapters/apiAdapter.js');
+} else if (db_repository_type === 'mock') {
+    repository = require('../adapters/mockAdapter.js');
+} else {
+    console.error(`Unknown repository type: ${db_repository_type}, defaulting to database adapter`);
+    repository = require('../adapters/dbAdapter.js');
 }
 
 // Unable to execute command netlify build with this dynamic requires,
