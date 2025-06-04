@@ -9,6 +9,7 @@ const { generateError } = require('../utils/errors.js');
 
 const encryptedFields = [
     'user_id',
+    'label',
 	'platform',
     'icon',
 	'login',
