@@ -20,10 +20,11 @@ const encryptedFields = [
 	'description',
 	'notes',
     'card_number',
-    'card_pin',
+    'card_name',
     'card_expiracy',
+    'card_issue_date',
     'card_cryptogram',
-    'card_number',
+    'card_pin',
     'totp_secret'
 ];
 
@@ -74,21 +75,25 @@ const findRecents = async function({ user_id }) {
         });
 
         if (!encryptedAccounts) {
-			throw generateError('Error', 'No accounts found', 404);
+			throw generateError('Error', 'No accounts found (accountService.findRecents)', 404);
 		}
 
-        return encryptedAccounts.map(account => {
-            if (account.isServerEncrypted) {
-                encryptedFields
-                    .filter(field => account[field])
-                    .forEach(field => account[field] = decrypt(account[field]));
+        return encryptedAccounts.reduce((validAccounts, account, index) => {
+            try {
+                if (account.isServerEncrypted) {
+                    encryptedFields
+                        .filter(field => account[field])
+                        .forEach(field => account[field] = decrypt(account[field]));
+                }
+                validAccounts.push(account);
+            } catch (err) {
+                console.error(`Error processing account at index ${index}:`, err);
             }
-
-            return account;
-        });
+            return validAccounts;
+        }, []);
     }
     catch (error) {
-        throw generateError('No accounts found', error.reason, error.code || 404);
+        throw generateError('Error while retrieving accounts (accountService.findRecents)', error.reason, error.code || 404);
     }
 }
 
@@ -105,7 +110,7 @@ const count = async function({ user_id }) {
         });
     }
     catch (error) {
-        throw generateError('No accounts found', error.message, error.code || 404);
+        throw generateError('No accounts found (accountService.count)', error.message, error.code || 404);
     }
 }
 
@@ -124,21 +129,32 @@ const findAll = async function({ user_id, max, offset }) {
         });
 
         if (!encryptedAccounts) {
-			throw generateError('Error', 'No accounts found', 404);
+			throw generateError('Error', 'No accounts found (accountService.findAll)', 404);
 		}
 
-        return encryptedAccounts.map(account => {
-            if (account.isServerEncrypted) {
-                encryptedFields
-                    .filter(field => account[field])
-                    .forEach(field => account[field] = decrypt(account[field]));
+        return encryptedAccounts.reduce((validAccounts, account, index) => {
+            try {
+                if (account.isServerEncrypted) {
+                    encryptedFields
+                        .filter(field => account[field])
+                        .forEach(field => {
+                            try {
+                                account[field] = decrypt(account[field]);
+                            }
+                            catch (decryptionError) {
+                                console.error(`Error decrypting field ${field} for account with id ${account._id}}:`, decryptionError);
+                            }
+                        });
+                }
+                validAccounts.push(account);
+            } catch (err) {
+                console.error(`Error decrypting account id ${account._id}:`, err);
             }
-
-            return account;
-        });
+            return validAccounts;
+        }, []);
     }
     catch (error) {
-        throw generateError('No accounts found', error.message, 404);
+        throw generateError('Error while retrieving accounts (accountService.findAll)', error.message, 404);
     }
 }
 
@@ -164,8 +180,6 @@ const create = async function({ accountToCreate, user_id }) {
                 .filter(field => createdAccount[field])
                 .forEach(field => createdAccount[field] = decrypt(createdAccount[field]));
         }
-        
-        
 
         return createdAccount;
     }

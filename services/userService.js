@@ -137,7 +137,7 @@ const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey, c
             uuid: decrypt(uuid),
             step: 'request_password'
         }, client),
-        isPasswordRequired: isOtpRequired && !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
+        isPasswordRequired: !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
         isOtpRequired: isOtpRequired,
         hasPasskey: hasPasskey,
         next: {

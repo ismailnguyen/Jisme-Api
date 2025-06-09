@@ -103,6 +103,7 @@ const generateMockData = () => {
             'card_number': '',
             'card_name': '',
             'card_expiracy': '',
+            'card_issue_date': '',
             'card_cryptogram': '',
             'card_pin': '',
             'card_format': '',
