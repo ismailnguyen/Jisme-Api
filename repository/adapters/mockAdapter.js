@@ -3,13 +3,21 @@
 const { generateError } = require('../../utils/errors.js');
 const generateMockData = require('../../utils/mockData.js');
 
-// Initialize the mock store with generated data
-const mockData = generateMockData();
-const mockStore = {
-    users: [...mockData.users],
-    accounts: [...mockData.accounts],
-    activities: [...mockData.activities]
+// Keep mock data in-memory for the lifetime of the process (and across module reloads)
+// This ensures inserts/updates are visible to subsequent queries while the server is alive.
+const getMockStore = () => {
+    if (!global.__JISME_MOCK_STORE__) {
+        const mockData = generateMockData();
+        global.__JISME_MOCK_STORE__ = {
+            users: [...mockData.users],
+            accounts: [...mockData.accounts],
+            activities: [...mockData.activities]
+        };
+    }
+    return global.__JISME_MOCK_STORE__;
 };
+
+const mockStore = getMockStore();
 
 // Helper to generate MongoDB-like Object IDs
 const generateObjectId = () => {
