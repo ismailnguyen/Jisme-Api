@@ -59,7 +59,12 @@ const sendQuery = async function (collectionName, {
     update,
     pipeline
 }) {
-    console.log(`MOCK DB: ${action} on ${collectionName}`);
+    // Maintain a global call counter to show how many times this log has fired
+    if (typeof global.__JISME_MOCK_CALL_COUNT__ !== 'number') {
+        global.__JISME_MOCK_CALL_COUNT__ = 0;
+    }
+    global.__JISME_MOCK_CALL_COUNT__ += 1;
+    console.log(`MOCK DB #${global.__JISME_MOCK_CALL_COUNT__}: ${action} on ${collectionName}`);
     
     // Determine which collection to use
     let collection = [];
