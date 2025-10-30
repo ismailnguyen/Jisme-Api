@@ -11,6 +11,7 @@ const {
     generatePublicKey,
     generateUnsignedAccessToken,
     generateSignedAccessToken,
+    getTokenExpiration,
     isTotpValid,
     generateTotpSecret,
     fakeUser
@@ -362,17 +363,19 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
 
         const hasAccounts = await accountService.count({ user_id: uuid }) > 0;
 
+        const token = generateSignedAccessToken(
+            {
+                email: email,
+                uuid: uuid
+            },
+            isExtendedSession,
+            { agent, referer, ip }
+        );
+
         // Save new token on database
         return await update({ email: email, uuid: uuid }, {
-            // Generate access token
-            token: generateSignedAccessToken(
-                {
-                    email: email,
-                    uuid: uuid
-                },
-                isExtendedSession,
-                { agent, referer, ip }
-            ),
+            token: token,
+            tokenExpiry: getTokenExpiration(token),
             hasAccounts: hasAccounts,
             last_login_date: new Date().toISOString()
         });
@@ -391,6 +394,7 @@ const updateLastUpdatedDate = async function({ email, uuid }, last_update_date) 
 }
 
 const update = async function({ email, uuid }, payload) {
+    payload = payload || {};
     try {
         const encryptedEmail = encrypt(email);
         const encryptedUuid = encrypt(uuid);
@@ -426,6 +430,11 @@ const update = async function({ email, uuid }, payload) {
         };
         
         try {
+            const decryptedToken = decrypt(userToUpdate.token);
+            const resolvedTokenExpiry = payload.tokenExpiry != null
+                ? payload.tokenExpiry
+                : getTokenExpiration(decryptedToken);
+
             await updateUser({
                 query: {
                     email: encryptedEmail,
@@ -441,7 +450,8 @@ const update = async function({ email, uuid }, payload) {
                 created_date: userToUpdate.created_date,
                 last_update_date: userToUpdate.last_update_date,
                 last_login_date: userToUpdate.last_login_date,
-                token: decrypt(userToUpdate.token),
+                token: decryptedToken,
+                tokenExpiry: resolvedTokenExpiry,
                 avatarUrl: decrypt(userToUpdate.avatarUrl),
                 isMFAEnabled: userToUpdate.isMFAEnabled,
                 passkeys: userToUpdate.passkeys,

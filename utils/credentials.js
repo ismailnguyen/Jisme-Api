@@ -1,6 +1,6 @@
 'use strict';
 
-const { sign, verify } = require('jsonwebtoken');
+const { sign, verify, decode } = require('jsonwebtoken');
 const { authenticator } = require('otplib');
 const sha256 = require('sha256');
 const {
@@ -64,6 +64,29 @@ const generateSignedAccessToken = function ({ email, uuid}, extendedExpiration, 
   });
 }
 
+const getTokenExpiration = function (token) {
+  if (!token) {
+    return null;
+  }
+
+  const decodedToken = decode(token);
+
+  if (!decodedToken || !decodedToken.exp) {
+    return null;
+  }
+
+  const expiresAt =
+    typeof decodedToken.exp === 'number'
+      ? decodedToken.exp
+      : parseInt(decodedToken.exp, 10);
+
+  if (Number.isNaN(expiresAt)) {
+    return null;
+  }
+
+  return new Date(expiresAt * 1000).toISOString();
+}
+
 const verifyAccessToken = async function (authorization) {
   const accessToken = authorization && authorization.split(' ')[1]; // Remove Bearer
 
@@ -122,3 +145,4 @@ exports.generateUnsignedAccessToken = generateUnsignedAccessToken;
 exports.generateSignedAccessToken = generateSignedAccessToken;
 exports.verifyAccessToken = verifyAccessToken;
 exports.fakeUser = fakeUser;
+exports.getTokenExpiration = getTokenExpiration;
