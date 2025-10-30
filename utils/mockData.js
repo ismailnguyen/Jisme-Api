@@ -110,7 +110,37 @@ const generateMockData = () => {
             'totp_secret': '',
             'isServerEncrypted':true,
             'is_password_less':false
-         }
+         },
+
+         {
+            _id: '67e3c7608cd27ab6235f0',
+            user_id: encrypt('user-uuid-1'),
+            created_date: 'Wed, 26 Mar 2025 09:21:29 GMT',
+            last_modified_date: 'Wed, 26 Mar 2025 09:21:29 GMT',
+            last_opened_date: 'Wed, 26 Mar 2025 09:21:29 GMT',
+            'icon': encrypt("{\"iv\":\"ZC+NaH1Jpq3Kf9mK+wCgCg==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"HkOWayDfa60idFg6fARSPFMeqU1nKwBjB/dyi37FuIPh6fo44fMdgz6m2D23nV4IS+033DdZbRzD8bTd+wMUVnVXQ5in8zcv9rVavWL0Z6n1FPgKh38rPdfEVk6Q5dPpk/EUZV8IkbwrCIIzcVzEaApK2LYcSqZAwk8v6uWn9/3xgLEu2yO0Z/RFwApH0DpOMVP92OcF4q8etoRch2sAGZ/OWCKjzQ==\"}"),
+            'label': encrypt("{\"iv\":\"lzHvOGYyvy9PKF1lTL0b6w==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"06TqJgZ1geknSSAOzuREs7T+\"}"),
+            'platform': encrypt("{\"iv\":\"lzHvOGYyvy9PKF1lTL0b6w==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"06TqJgZ1geknSSAOzuREs7T+\"}"),
+            'login': encrypt("{\"iv\":\"ntnCce0OJJzdlGcZTrtDDg==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"Kca52CZBrxSkf8bDbhF+7bMyO1aMjMA=\"}"),
+            'password': '',
+            'password_clue': encrypt("{\"iv\":\"eSleDp4KrcB+61Lag61Gew==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"j0SIjEB3NSzdY3UpRhXRCJo=\"}"),
+            'tags': encrypt("{\"iv\":\"c+IaIDyGpQLP3iJhFMEnGw==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"3e+w8lWKV62p0TXHPGTPxDlW\"}"),
+            'social_login': '',
+            'description': '',
+            'notes': encrypt("{\"iv\":\"Qdf+0sIftNSess/yCnA1Lw==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"Txb6PApncjQ=\",\"ct\":\"nxif31gz/V9kO3+7a5m+xrrM7sPxv/alqQ==\"}"),
+            'opened_count':5,
+            'type':'account',
+            'subtype':'wifi',
+            'card_number': '',
+            'card_name': '',
+            'card_expiracy': '',
+            'card_cryptogram': '',
+            'card_pin': '',
+            'card_format': '',
+            'totp_secret': '',
+            'isServerEncrypted':true,
+            'is_password_less':false
+         },
     ];
 
     // Mock user activities
