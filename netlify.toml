@@ -1,6 +1,9 @@
 [build]
   command = "echo no build command"
   functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
   
 [[redirects]]
   from = "/func/*"

@@ -1,5 +1,10 @@
 # Mock Server Mode
 
+## Prerequisites
+- **Node.js** >= **22** (recommended to use nvm: `nvm install 22 && nvm use 22`)
+- **npm** (use the bundled npm with Node 22)
+
+
 For local development and testing, you can run the application in mock mode, which uses in-memory data instead of connecting to a MongoDB database.
 
 ## Steps to run in mock mode:
