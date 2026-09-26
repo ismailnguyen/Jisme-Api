@@ -64,3 +64,8 @@ typings/
 
 .DS_Store
 .qodo
+
+
+# AI
+.claude
+.impeccable
