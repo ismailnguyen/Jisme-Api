@@ -66,6 +66,21 @@ const sendQuery = async function (collectionName, {
     global.__JISME_MOCK_CALL_COUNT__ += 1;
     console.log(`MOCK DB #${global.__JISME_MOCK_CALL_COUNT__}: ${action} on ${collectionName}`);
     
+    // Test/development only: never use this in-memory adapter for serverless auth.
+    if (collectionName === 'webauthn_challenges') {
+        const challenges = mockStore.webauthnChallenges ||= [];
+        if (action === 'insertOne') {
+            const entry = {...document, _id:generateObjectId()};
+            challenges.push(entry);
+            return {data:{insertedId:entry._id}};
+        }
+        if (action === 'findOneAndDelete') {
+            const index = challenges.findIndex(item => item.challenge === filter.challenge && item.userId === filter.userId && item.purpose === filter.purpose && item.expiresAt > filter.expiresAt.$gt);
+            return {data:{document:index < 0 ? null : challenges.splice(index,1)[0]}};
+        }
+        throw new Error('Unsupported WebAuthn challenge action');
+    }
+
     // Determine which collection to use
     let collection = [];
     if (collectionName.includes('user') && !collectionName.includes('activity')) {

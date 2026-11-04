@@ -93,24 +93,6 @@ const register = async function({ email, password }, client) {
     }
 }
 
-const requestPassKeyVerification = ({ email, uuid, isOtpRequired, hasPasskey, client }) => {
-    return {
-        email: decrypt(email),
-        token: generateUnsignedAccessToken({
-            email: decrypt(email),
-            uuid: decrypt(uuid),
-            step: 'request_passkey'
-        }, client),
-        isPasswordRequired: !hasPasskey, // if there is a passkey, password becomes not mandatory
-        isOtpRequired: isOtpRequired,
-        hasPasskey: hasPasskey,
-        next: {
-            step: 'verify_passkey',
-            url: '/login/passkey'
-        }
-    };
-}
-
 const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPasskey, client }) => {
     return {
         email: decrypt(email),
@@ -165,19 +147,10 @@ const requestLogin = async function(email, { agent, referer, ip}) {
 			return fakeUser(email, { agent, referer, ip });
 		}
 
-        const hasPasskey = foundUser.passkeys && foundUser.passkeys.length > 0;
+        // Existing passkeys have no server-validated public key. Use password/MFA
+        // until the verified ceremonies are wired through both transports.
+        const hasPasskey = false;
         const hasMFA = foundUser.isMFAEnabled;
-
-        // If user has passkey, request passkey login
-        if (hasPasskey) {
-            return requestPassKeyVerification({
-                email: foundUser.email,
-                uuid: foundUser.uuid,
-                isOtpRequired: hasMFA,
-                hasPasskey: hasPasskey,
-                client: { agent, referer, ip }
-            });
-        }
 
         // Otherwise request password login
         return requestPasswordVerification({
@@ -225,7 +198,9 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
         }
 
         const hasMFA = foundUser.isMFAEnabled;
-        const hasPasskey = foundUser.passkeys && foundUser.passkeys.length > 0;
+        // Existing passkeys have no server-validated public key. Use password/MFA
+        // until the verified ceremonies are wired through both transports.
+        const hasPasskey = false;
 
         // If user has MFA, request MFA login
         if (hasMFA) {
@@ -289,40 +264,11 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
     }
 }
 
-const verifyPasskey = async function(passkeyId, userId, isExtendedSession, { agent, referer, ip }) {
-    if (!passkeyId || !userId) {
-		throw generateError('Invalid user input', 'Must provide a passkey.', 400);
-    }
-
-    try {
-        const foundUser = await findUser({
-            query: { 
-                uuid: encrypt(userId)
-            }
-        });
-
-        if (!foundUser) {
-			throw generateError('Unauthorized', 'User not found', 404);
-		}
-
-        const isPasskeyMatching = foundUser.passkeys.find(p => p.passkey.id === passkeyId);
-
-        if (!isPasskeyMatching) {
-			throw generateError('Unauthorized', 'Invalid passkey', 401);
-        }
-
-        return await login(
-            {
-                email: decrypt(foundUser.email),
-                uuid: decrypt(foundUser.uuid),
-                isExtendedSession: isExtendedSession
-            },
-            { agent, referer, ip }
-        );
-    }
-    catch (error) {
-        throw generateError(error.message || 'Error', error.reason || error.message, 404);
-    }
+const verifyPasskey = async function() {
+    // Legacy records were never verified at enrollment. IDs are not authentication.
+    // Keep this endpoint closed until the new ceremony is integrated end to end.
+    throw generateError('Passkey re-enrollment required',
+        'Sign in with password (and MFA if enabled), then re-enroll your passkey when verified enrollment is available.', 403);
 }
 
 const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
@@ -395,6 +341,9 @@ const updateLastUpdatedDate = async function({ email, uuid }, last_update_date) 
 
 const update = async function({ email, uuid }, payload) {
     payload = payload || {};
+    if (payload.passkeys !== undefined) {
+        throw generateError('Passkey re-enrollment required', 'Use verified enrollment; client-supplied passkeys are not accepted.', 403);
+    }
     try {
         const encryptedEmail = encrypt(email);
         const encryptedUuid = encrypt(uuid);

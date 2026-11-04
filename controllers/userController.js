@@ -87,58 +87,9 @@ const verifyOTP = async function ({ authorization }, { totpToken, isExtendedSess
 	}
 }
 
-const verifyPasskey = async function ({ authorization }, { passkey, isExtendedSession }, newClient) {
-	try {
-		if (!passkey) {
-			throw generateError('Unauthorized', 'Missing passkey/challenge', 401);
-		}
-
-		const { uuid, step, client: { agent, referer, ip } } = await verifyAccessToken(authorization);
-
-		//If the one who request the challenge is not the same as the one who is trying to log, reject the request
-		if (newClient.agent !== agent
-			// IP verification is buggy, so we will disable it for now
-			//|| newClient.ip.split(',').some(element => ip.split(',').includes(element.trim())) === false // Check if the IP is the same even in a list of IPs
-		) {
-			console.log('Client mismatch', newClient.agent, newClient.ip, agent, ip);
-			throw generateError('Unauthorized', 'Invalid passkey challenge', 401);
-		}
-
-		// The step should be request_passkey, otherwise reject
-		if (!uuid || step !== 'request_passkey') {
-			throw generateError('Unauthorized', 'Invalid session.', 401);
-		}
-
-		const { id: passkeyId, response: passkeyResponse } = passkey;
-
-		if (!passkeyId || !passkeyResponse || !passkeyResponse.userHandle || passkeyResponse.userHandle !== uuid) {
-			throw generateError('Unauthorized', 'Invalid passkey', 401);
-		}
-
-		try {
-			const user = await userService.verifyPasskey(
-				passkeyId,
-				passkeyResponse.userHandle,
-				isExtendedSession,
-				{
-					agent: agent,
-					referer: referer,
-					ip: ip
-				}
-			);
-		
-			return {
-				status: 200,
-				data: user
-			};
-		}
-		catch (error) {
-			return throwError(error);
-		}
-	}
-	catch (error) {
-		return throwError(error);
-	}
+const verifyPasskey = async function (_headers, payload) {
+    return throwError(generateError('Passkey re-enrollment required',
+        'Sign in with password (and MFA if enabled), then re-enroll your passkey when verified enrollment is available.', 403));
 }
 
 const register = async function({ email, password }) {
@@ -227,10 +178,20 @@ const getInformation = async function({ authorization }) {
 	}
 }
 
-exports.login = login;
-exports.verifyPassword = verifyPassword;
-exports.verifyPasskey = verifyPasskey;
-exports.verifyOTP = verifyOTP;
-exports.register = register;
-exports.update = update;
+// Authentication and vault unlock are distinct protocols. Never accept PRF
+// output on any user write/auth endpoint, even if the handler ignores the field.
+const withoutPRF = (handler, payloadIndex) => async (...args) => {
+    try {
+        require('../services/webauthnVerifier.js').assertNoPRF(args[payloadIndex]);
+    } catch (_) {
+        return throwError(generateError('Invalid user payload', 'PRF material must remain on the client for vault unlock.', 400));
+    }
+    return handler(...args);
+};
+exports.login = withoutPRF(login, 0);
+exports.verifyPassword = withoutPRF(verifyPassword, 1);
+exports.verifyPasskey = withoutPRF(verifyPasskey, 1);
+exports.verifyOTP = withoutPRF(verifyOTP, 1);
+exports.register = withoutPRF(register, 0);
+exports.update = withoutPRF(update, 1);
 exports.getInformation = getInformation;
