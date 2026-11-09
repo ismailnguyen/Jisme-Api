@@ -27,14 +27,23 @@ const isTotpValid = function (totpToken, totpSecret) {
   }
 }
 
-const generateAccessToken = function ({ email, uuid, extendedExpiration, step, isAuthorized, client }) {
-  return sign({
+const generateAccessToken = function ({ email, uuid, extendedExpiration, step, isAuthorized, client, authTime }) {
+  const payload = {
       email: email,
       uuid: uuid,
       step: step,
       isAuthorized: isAuthorized,
       client: client // client details like agent, referer, ip
-    },
+    };
+
+  // auth_time deliberately records completed authentication time.
+  // It is only set on fully authenticated tokens, never inferred from
+  // issuance (iat) or refresh time. Pre-auth tokens omit it.
+  if (authTime !== undefined && authTime !== null) {
+    payload.auth_time = authTime;
+  }
+
+  return sign(payload,
     token_master_secret,
     { 
       expiresIn: extendedExpiration ? '90 days' : '72h'
@@ -60,8 +69,31 @@ const generateSignedAccessToken = function ({ email, uuid}, extendedExpiration, 
     step: 'loggedIn',
     isAuthorized: true,
     extendedExpiration: extendedExpiration,
-    client: client
+    client: client,
+    authTime: Math.floor(Date.now() / 1000)
   });
+}
+
+// Trusted session resolver for security ceremonies (e.g. WebAuthn
+// enrollment). Fails closed unless the token is a fully authenticated
+// session carrying a deliberate auth_time claim: pre-auth tokens and
+// legacy tokens issued before auth_time existed must reauthenticate.
+// The freshness window (auth_time age) is enforced by the ceremony layer.
+const generateFreshSessionResolver = function () {
+  return async function resolveFreshSession(authorization) {
+    const session = await verifyAccessToken(authorization);
+
+    if (session.isAuthorized !== true || !session.uuid
+        || !Number.isSafeInteger(session.auth_time)) {
+      throw generateError(
+        'Error while resolving session (credentials.generateFreshSessionResolver)',
+        'A fresh authenticated session is required',
+        401
+      );
+    }
+
+    return session;
+  };
 }
 
 const getTokenExpiration = function (token) {
@@ -95,13 +127,14 @@ const verifyAccessToken = async function (authorization) {
   }
 
   try {
-    const { email, uuid, step, isAuthorized, client } = await verify(accessToken, token_master_secret);
+    const { email, uuid, step, isAuthorized, client, auth_time } = await verify(accessToken, token_master_secret);
   
     return {
       email,
       uuid,
       step,
       isAuthorized,
+      auth_time: Number.isSafeInteger(auth_time) ? auth_time : undefined,
       client: {
         agent: client && client.agent ? client.agent : 'Unknown',
         referer: client && client.referer ? client.referer : 'Unknown',
@@ -144,5 +177,6 @@ exports.isTotpValid = isTotpValid;
 exports.generateUnsignedAccessToken = generateUnsignedAccessToken;
 exports.generateSignedAccessToken = generateSignedAccessToken;
 exports.verifyAccessToken = verifyAccessToken;
+exports.generateFreshSessionResolver = generateFreshSessionResolver;
 exports.fakeUser = fakeUser;
 exports.getTokenExpiration = getTokenExpiration;

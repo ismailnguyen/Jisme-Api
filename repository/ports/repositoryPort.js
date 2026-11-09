@@ -109,6 +109,12 @@ const deleteOne = async function (collection, { filter }) {
     return deletedData;
 }
 
+// A single database operation is essential: read-then-delete races in serverless.
+exports.findOneAndDelete = async function(collection, {filter}) {
+    if (db_repository_type === 'api') throw new Error('Atomic WebAuthn challenges require the Mongo repository');
+    const response = await repository.sendQuery(collection, {action:'findOneAndDelete',filter});
+    return response?.data?.document || null;
+};
 exports.count = count;
 exports.findOne = findOne;
 exports.findAll = findAll;

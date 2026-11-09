@@ -34,6 +34,10 @@ const sendQuery = async function (collectionName, {
         delete update._id;
     }
 
+    if (action === 'findOneAndDelete') {
+        return {data:{document:await collection.findOneAndDelete(filter, {includeResultMetadata:false})}};
+    }
+
     if (action === 'count') {
         return collection.countDocuments(filter);
     }
