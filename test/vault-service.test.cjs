@@ -6,7 +6,8 @@ const assert = require('node:assert/strict');
 
 // Synthetic store prevents checked-in mock fixtures/config/secrets being loaded.
 global.__JISME_MOCK_STORE__ = { users: [], accounts: [], activities: [], webauthnChallenges: [], vaultEnvelopes: [] };
-process.env.NODE_ENV = 'production';
+// The vault repository refuses the mock adapter in production (review L1).
+process.env.NODE_ENV = 'test';
 process.env.DB_REPOSITORY_TYPE = 'mock';
 
 const vault = require('../services/vaultService.js');

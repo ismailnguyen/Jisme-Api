@@ -5,7 +5,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 global.__JISME_MOCK_STORE__ = { users: [], accounts: [], activities: [], webauthnChallenges: [], vaultEnvelopes: [] };
-process.env.NODE_ENV = 'production';
+// The vault repository refuses the mock adapter in production (review L1).
+process.env.NODE_ENV = 'test';
 process.env.DB_REPOSITORY_TYPE = 'mock';
 process.env.TOKEN_MASTER_SECRET = 'unit-test-token-secret';
 

@@ -10,7 +10,8 @@ const LIMITS = Object.freeze({
     ENVELOPE_VERSION: 1,
     MIN_CIPHERTEXT_BYTES: 28,       // at least an AEAD nonce + tag
     MAX_CIPHERTEXT_BYTES: 524288,   // 512 KiB
-    MAX_VAULTS_PER_USER: 8,         // soft bound (checked before insert)
+    MAX_VAULTS_PER_USER: 8,         // hard bound: atomic per-user quota reservation
+    MAX_VAULT_NAMES: 64,            // distinct names ever created (bounds tombstones)
 });
 const VAULT_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
@@ -90,11 +91,71 @@ async function storage(operation) {
     }
 }
 
+// currentRevision is read separately (not atomically with the failed write), so
+// it is only a hint: clients must re-fetch before retrying.
 async function conflict(owner, vaultId) {
     const current = await storage(() => repository.findOne(owner, vaultId));
     const error = generateError('Revision conflict', 'The vault changed; fetch the latest revision, merge locally and retry.', 409);
     error.currentRevision = current && Number.isSafeInteger(current.revision) ? current.revision : 0;
     return error;
+}
+
+const isTombstone = (doc) => doc.envelope == null;
+
+// Releasing a quota slot after the vault write is already settled: a failure
+// only leaves the slot held (fail closed: the limit gets stricter, never looser).
+async function releaseQuietly(owner, vaultId, newName) {
+    try {
+        await repository.releaseSlot(owner, vaultId, { newName });
+    } catch (_) {
+        // intentionally ignored; see above
+    }
+}
+
+// Reservation refused: the id is already held (live or in-flight) -> 409,
+// otherwise a limit was reached -> 403.
+async function quotaRefusal(owner, vaultId, newName) {
+    const quota = await storage(() => repository.findQuota(owner));
+    if (quota && Array.isArray(quota.ids) && quota.ids.includes(vaultId)) {
+        return conflict(owner, vaultId);
+    }
+    if (newName && quota && Number.isSafeInteger(quota.names) && quota.names >= LIMITS.MAX_VAULT_NAMES) {
+        return generateError('Vault name limit reached',
+            `At most ${LIMITS.MAX_VAULT_NAMES} distinct vault names per user; re-use a deleted vault name.`, 403);
+    }
+    return generateError('Vault limit reached', `At most ${LIMITS.MAX_VAULTS_PER_USER} vaults per user.`, 403);
+}
+
+// Create (expectedRevision 0). A deleted vault leaves a tombstone holding its last
+// revision, and re-creating it continues from there, so a stale writer's revision
+// can never match a re-created vault (no ABA). The per-user slot is reserved
+// atomically before the write, so concurrent creates cannot exceed the limit.
+async function create(owner, vaultId, { envelope, size, updatedAt }) {
+    const existing = await storage(() => repository.findAny(owner, vaultId));
+    if (existing && !isTombstone(existing)) {
+        throw await conflict(owner, vaultId);
+    }
+    const newName = !existing;
+    const revision = newName ? 1 : existing.revision + 1;
+    if (!Number.isSafeInteger(revision) || revision < 1 || !Number.isSafeInteger(revision + 1)) {
+        throw await conflict(owner, vaultId);
+    }
+
+    const reserved = await storage(() => repository.reserveSlot(owner, vaultId,
+        { newName, maxLive: LIMITS.MAX_VAULTS_PER_USER, maxNames: LIMITS.MAX_VAULT_NAMES }));
+    if (!reserved) {
+        throw await quotaRefusal(owner, vaultId, newName);
+    }
+
+    // On a storage error the write may have landed, so the slot is kept (fail closed).
+    const written = await storage(() => (newName
+        ? repository.insert({ owner, vaultId, revision, envelope, size, updatedAt })
+        : repository.revive(owner, vaultId, existing.revision, { revision, envelope, size, updatedAt })));
+    if (!written) {
+        await releaseQuietly(owner, vaultId, newName);
+        throw await conflict(owner, vaultId);
+    }
+    return { created: true, vaultId, revision, updatedAt };
 }
 
 const list = async function (uuid) {
@@ -131,18 +192,7 @@ const put = async function (uuid, vaultId, body, now = new Date()) {
     const updatedAt = now.toISOString();
 
     if (expectedRevision === 0) {
-        const count = await storage(() => repository.count(owner));
-        if (!Number.isSafeInteger(count)) {
-            throw generateError('Vault storage unavailable', 'Try again later.', 503);
-        }
-        if (count >= LIMITS.MAX_VAULTS_PER_USER) {
-            throw generateError('Vault limit reached', `At most ${LIMITS.MAX_VAULTS_PER_USER} vaults per user.`, 403);
-        }
-        const inserted = await storage(() => repository.insert({ owner, vaultId, revision: 1, envelope, size, updatedAt }));
-        if (!inserted) {
-            throw await conflict(owner, vaultId);
-        }
-        return { created: true, vaultId, revision: 1, updatedAt };
+        return create(owner, vaultId, { envelope, size, updatedAt });
     }
 
     const revision = expectedRevision + 1;
@@ -153,14 +203,16 @@ const put = async function (uuid, vaultId, body, now = new Date()) {
     return { created: false, vaultId, revision, updatedAt };
 };
 
-const remove = async function (uuid, vaultId, expectedRevision) {
+// Delete leaves a ciphertext-free tombstone (revision expected + 1), then frees the slot.
+const remove = async function (uuid, vaultId, expectedRevision, now = new Date()) {
     const owner = ownerOf(uuid);
     validateVaultId(vaultId);
     validateRevision(expectedRevision, 1);
-    const deleted = await storage(() => repository.compareAndDelete(owner, vaultId, expectedRevision));
+    const deleted = await storage(() => repository.compareAndDelete(owner, vaultId, expectedRevision, { updatedAt: now.toISOString() }));
     if (!deleted) {
         throw await conflict(owner, vaultId);
     }
+    await releaseQuietly(owner, vaultId, false);
     return { vaultId, deleted: true };
 };
 

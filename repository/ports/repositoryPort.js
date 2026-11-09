@@ -127,6 +127,14 @@ exports.findOneAndUpdate = async function (collection, { filter, update }) {
     const response = await repository.sendQuery(collection, { action: 'findOneAndUpdate', filter, update });
     return response?.data?.document || null;
 };
+exports.reserveSlot = async function (collection, { filter, update }) {
+    const response = await repository.sendQuery(collection, { action: 'reserve', filter, update });
+    return response?.data?.document || null;
+};
+exports.releaseSlot = async function (collection, { filter, update }) {
+    const response = await repository.sendQuery(collection, { action: 'release', filter, update });
+    return response?.data?.released === true;
+};
 exports.count = count;
 exports.findOne = findOne;
 exports.findAll = findAll;
