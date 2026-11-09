@@ -81,6 +81,31 @@ const sendQuery = async function (collectionName, {
         throw new Error('Unsupported WebAuthn challenge action');
     }
 
+    // Test/development only: single-process equivalent of the Mongo vault branch.
+    if (collectionName === 'vault_envelopes') {
+        const vaults = mockStore.vaultEnvelopes ||= [];
+        const matches = (item) => Object.keys(filter || {}).every((key) => item[key] === filter[key]);
+        const copy = (item) => item ? JSON.parse(JSON.stringify(item)) : null;
+        if (action === 'insertOne') {
+            if (vaults.some((item) => item._id === document._id)) return { data: { inserted: false } };
+            vaults.push(copy(document));
+            return { data: { inserted: true } };
+        }
+        if (action === 'findOneAndUpdate') {
+            const item = vaults.find(matches);
+            if (item) Object.assign(item, copy(update));
+            return { data: { document: copy(item) } };
+        }
+        if (action === 'findOneAndDelete') {
+            const index = vaults.findIndex(matches);
+            return { data: { document: index < 0 ? null : vaults.splice(index, 1)[0] } };
+        }
+        if (action === 'findOne') return { data: { document: copy(vaults.find(matches)) } };
+        if (action === 'find') return { data: { documents: vaults.filter(matches).map(copy) } };
+        if (action === 'count') return vaults.filter(matches).length;
+        throw generateError('Mock DB error', 'Unsupported vault action', 500);
+    }
+
     // Determine which collection to use
     let collection = [];
     if (collectionName.includes('user') && !collectionName.includes('activity')) {

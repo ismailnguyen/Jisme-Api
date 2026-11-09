@@ -7,6 +7,41 @@ const {
     ObjectId
 } = require('mongodb');
 
+// Vault envelopes use deterministic string _ids (uniqueness without an extra
+// index) and only single-document atomic operations. Kept apart from the
+// generic path, which rewrites _id into ObjectId and strips it on insert.
+const VAULT_COLLECTION = 'vault_envelopes';
+const DUPLICATE_KEY = 11000;
+
+const vaultQuery = async function (collection, { action, filter, projection, document, update }) {
+    if (action === 'insertOne') {
+        try {
+            await collection.insertOne(document);
+            return { data: { inserted: true } };
+        } catch (error) {
+            if (error && error.code === DUPLICATE_KEY) return { data: { inserted: false } };
+            throw error;
+        }
+    }
+    if (action === 'findOneAndUpdate') {
+        return { data: { document: await collection.findOneAndUpdate(filter, { $set: update },
+            { returnDocument: 'after', upsert: false, includeResultMetadata: false }) } };
+    }
+    if (action === 'findOneAndDelete') {
+        return { data: { document: await collection.findOneAndDelete(filter, { includeResultMetadata: false }) } };
+    }
+    if (action === 'findOne') {
+        return { data: { document: await collection.findOne(filter) } };
+    }
+    if (action === 'find') {
+        return { data: { documents: await collection.find(filter, { projection }).toArray() } };
+    }
+    if (action === 'count') {
+        return collection.countDocuments(filter);
+    }
+    throw generateError('Database query error', 'Unsupported vault action', 500);
+}
+
 const sendQuery = async function (collectionName, {
     action,
     filter,
@@ -21,6 +56,10 @@ const sendQuery = async function (collectionName, {
 }) {
     const dbConnection = await connection.getInstance();
     const collection = dbConnection.collection(collectionName);
+
+    if (collectionName === VAULT_COLLECTION) {
+        return vaultQuery(collection, { action, filter, projection, document, update });
+    }
 
     if (filter && filter._id) {
         filter._id = new ObjectId(filter._id);

@@ -115,6 +115,18 @@ exports.findOneAndDelete = async function(collection, {filter}) {
     const response = await repository.sendQuery(collection, {action:'findOneAndDelete',filter});
     return response?.data?.document || null;
 };
+// Single-document atomic primitives (vault envelopes). Callers must refuse the
+// Data API adapter, which cannot provide these semantics.
+exports.insertOneExclusive = async function (collection, { document }) {
+    const response = await repository.sendQuery(collection, { action: 'insertOne', document });
+    const inserted = response?.data?.inserted;
+    if (typeof inserted !== 'boolean') throw new Error('Repository does not support exclusive insert');
+    return inserted;
+};
+exports.findOneAndUpdate = async function (collection, { filter, update }) {
+    const response = await repository.sendQuery(collection, { action: 'findOneAndUpdate', filter, update });
+    return response?.data?.document || null;
+};
 exports.count = count;
 exports.findOne = findOne;
 exports.findAll = findAll;
