@@ -6,6 +6,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 module.exports = {
+    node_env: process.env.NODE_ENV,
     db_repository_type: process.env.DB_REPOSITORY_TYPE,
 
     db_uri: process.env.MONGODB_URI,

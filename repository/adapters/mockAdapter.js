@@ -81,6 +81,62 @@ const sendQuery = async function (collectionName, {
         throw new Error('Unsupported WebAuthn challenge action');
     }
 
+    // Test/development only: single-process equivalent of the Mongo vault branch.
+    if (collectionName === 'vault_envelopes') {
+        const vaults = mockStore.vaultEnvelopes ||= [];
+        // Mongo equality semantics used by the vault repository: dotted paths, and
+        // `null` matches both null and missing values.
+        const valueAt = (item, key) => key.split('.').reduce((value, part) => (value == null ? undefined : value[part]), item);
+        const matches = (item) => Object.keys(filter || {}).every((key) => (filter[key] === null
+            ? valueAt(item, key) == null
+            : valueAt(item, key) === filter[key]));
+        const copy = (item) => item ? JSON.parse(JSON.stringify(item)) : null;
+        if (action === 'insertOne') {
+            if (vaults.some((item) => item._id === document._id)) return { data: { inserted: false } };
+            vaults.push(copy(document));
+            return { data: { inserted: true } };
+        }
+        if (action === 'findOneAndUpdate') {
+            const item = vaults.find(matches);
+            if (item) Object.assign(item, copy(update));
+            return { data: { document: copy(item) } };
+        }
+        if (action === 'findOneAndDelete') {
+            const index = vaults.findIndex(matches);
+            return { data: { document: index < 0 ? null : copy(vaults.splice(index, 1)[0]) } };
+        }
+        if (action === 'findOne') return { data: { document: copy(vaults.find(matches)) } };
+        if (action === 'find') return { data: { documents: vaults.filter(matches).map(copy) } };
+        if (action === 'count') return vaults.filter(matches).length;
+        throw generateError('Mock DB error', 'Unsupported vault action', 500);
+    }
+
+    // Test/development only: single-process equivalent of the Mongo quota branch.
+    if (collectionName === 'vault_quotas') {
+        const quotas = mockStore.vaultQuotas ||= [];
+        const copy = (item) => item ? JSON.parse(JSON.stringify(item)) : null;
+        const quota = quotas.find((item) => item._id === (filter && filter._id));
+        if (action === 'findOne') return { data: { document: copy(quota) } };
+        const { vaultId, newName, maxLive, maxNames } = update || {};
+        if (action === 'reserve') {
+            const current = quota || { _id: filter._id, ids: [], names: 0 };
+            if (current.ids.includes(vaultId) || current.ids.length >= maxLive || (newName && current.names >= maxNames)) {
+                return { data: { document: null } };
+            }
+            if (!quota) quotas.push(current);
+            current.ids.push(vaultId);
+            current.names += newName ? 1 : 0;
+            return { data: { document: copy(current) } };
+        }
+        if (action === 'release') {
+            if (!quota || !quota.ids.includes(vaultId)) return { data: { released: false } };
+            quota.ids.splice(quota.ids.indexOf(vaultId), 1);
+            quota.names -= newName ? 1 : 0;
+            return { data: { released: true } };
+        }
+        throw generateError('Mock DB error', 'Unsupported vault quota action', 500);
+    }
+
     // Determine which collection to use
     let collection = [];
     if (collectionName.includes('user') && !collectionName.includes('activity')) {
