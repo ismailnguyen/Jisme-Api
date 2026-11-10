@@ -109,7 +109,12 @@ test('vault repository refuses the Data API adapter without contacting it', asyn
 
 test('controller maps unexpected storage failures to a generic 503 without internals', async () => {
     const context = { exports: {}, console, require: (name) => {
-        if (name.includes('vaultService')) return new Proxy({}, { get: () => async () => { throw new Error('mongodb://admin:hunter2@db.internal'); } });
+        if (name.includes('vaultService')) return new Proxy({}, {
+            get: (_target, prop) => (prop === 'ownerOf'
+                ? () => 'synthetic-owner-hash'
+                : async () => { throw new Error('mongodb://admin:***@db.internal'); })
+        });
+        if (name.includes('vaultRateLimit')) return require('../services/vaultRateLimit.js');
         if (name.includes('credentials')) return { verifyAccessToken: async () => ({ uuid: 'u', isAuthorized: true, auth_time: Math.floor(Date.now() / 1000) }) };
         if (name.includes('errors')) return require('../utils/errors.js');
         if (name.includes('webauthnVerifier')) return require('../services/webauthnVerifier.js');

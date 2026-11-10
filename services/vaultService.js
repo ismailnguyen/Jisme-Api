@@ -217,6 +217,7 @@ const remove = async function (uuid, vaultId, expectedRevision, now = new Date()
 };
 
 exports.LIMITS = LIMITS;
+exports.ownerOf = ownerOf;
 exports.list = list;
 exports.get = get;
 exports.put = put;

@@ -2,26 +2,27 @@
 // Client vault envelopes. See docs/vault-envelope-design.md.
 const { list, get, put, remove } = require('../../controllers/vaultController.js');
 
+const send = (response, { status, data, headers }) => {
+	if (headers) response.set(headers);
+	response.status(status).json(data);
+};
+
 module.exports = function (app) {
 	app
 	.route('/vaults')
 	.get(async ({ headers }, response) => {
-		const { status, data } = await list(headers);
-		response.status(status).json(data);
+		send(response, await list(headers));
 	});
 
 	app
 	.route('/vaults/:vaultId')
 	.get(async ({ headers, params }, response) => {
-		const { status, data } = await get(headers, params);
-		response.status(status).json(data);
+		send(response, await get(headers, params));
 	})
 	.put(async ({ headers, params, body }, response) => {
-		const { status, data } = await put(headers, params, body);
-		response.status(status).json(data);
+		send(response, await put(headers, params, body));
 	})
 	.delete(async ({ headers, params, query }, response) => {
-		const { status, data } = await remove(headers, params, query);
-		response.status(status).json(data);
+		send(response, await remove(headers, params, query));
 	});
 }
