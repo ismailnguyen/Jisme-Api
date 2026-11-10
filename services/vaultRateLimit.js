@@ -1,5 +1,6 @@
 'use strict';
-// In-memory, per-owner fixed-window rate limiter for the vault endpoints.
+// In-memory, per-owner fixed-window rate limiter for the vault endpoints and the
+// sensitive user endpoints (passkey ceremonies, recovery).
 // Shared by the Express server and the Netlify function through the controller.
 //
 // Fail closed: there is no configuration, environment variable or runtime path
@@ -19,6 +20,14 @@ const LIMITS = Object.freeze({
     // Writes: far above a human edit/merge/delete loop, far below the churn
     // rate needed to burn the 64-name tombstone quota or hammer CAS retries.
     WRITES_PER_WINDOW: 20,
+    // WebAuthn ceremonies (enrollment, passkey login, vault unlock) and
+    // password-confirmed passkey deletion: options + verify per attempt.
+    SENSITIVE_PER_WINDOW: 20,
+    // Passkey login (pre-auth: anyone can obtain a pre-auth token for an email,
+    // so this budget is separate and cannot starve enrollment/unlock).
+    LOGIN_PER_WINDOW: 20,
+    // Recovery-code verification: a handful of typos, nothing more.
+    RECOVERY_PER_WINDOW: 5,
     MAX_TRACKED_KEYS: 200000, // memory bound for abandoned owners
 });
 
@@ -31,6 +40,9 @@ function deny(retryAfterSeconds) {
 function limitFor(kind) {
     if (kind === 'read') return LIMITS.READS_PER_WINDOW;
     if (kind === 'write') return LIMITS.WRITES_PER_WINDOW;
+    if (kind === 'sensitive') return LIMITS.SENSITIVE_PER_WINDOW;
+    if (kind === 'recovery') return LIMITS.RECOVERY_PER_WINDOW;
+    if (kind === 'login') return LIMITS.LOGIN_PER_WINDOW;
     return 0; // unknown kind: nothing is allowed (fail closed)
 }
 

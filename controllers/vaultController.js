@@ -2,6 +2,10 @@
 // HTTP boundary for client vault envelopes. See docs/vault-envelope-design.md.
 const vaultService = require('../services/vaultService.js');
 const rateLimit = require('../services/vaultRateLimit.js');
+// Unlock and recovery services are required lazily (same pattern as the PRF
+// guard below) so the CRUD handlers keep their minimal dependency surface.
+const unlockService = () => require('../services/vaultUnlockService.js');
+const recoveryService = () => require('../services/recoveryService.js');
 const { verifyAccessToken } = require('../utils/credentials.js');
 const { throwError, generateError } = require('../utils/errors.js');
 
@@ -68,6 +72,22 @@ const put = async function (session, params, body) {
         assertRecentAuthentication(session);
     }
     const { created, ...result } = await vaultService.put(session.uuid, params && params.vaultId, body);
+    if (created) {
+        // First-run vault setup: issue the user's one-time recovery code and
+        // return it ONCE (only a salted hash is stored). Users who already have
+        // one get nothing here. Issuance problems never fail the vault write;
+        // POST users/recovery is the fallback. Recovery cannot restore vault
+        // contents (see services/recoveryService.js).
+        try {
+            const recoveryCode = await recoveryService().issueIfAbsent(session.uuid, session.client);
+            if (recoveryCode) {
+                result.recoveryCode = recoveryCode;
+                result.recoveryNotice = recoveryService().NOTICE;
+            }
+        } catch (_) {
+            console.error('Recovery code issuance failed during vault setup');
+        }
+    }
     return { status: created ? 201 : 200, data: result };
 };
 
@@ -113,7 +133,25 @@ const guarded = (handler, kind) => async (headers, ...inputs) => {
     }
 };
 
+// Passkey (PRF) vault unlock. Authenticated != unlocked: these need a full
+// session AND a fresh WebAuthn assertion for a vault-unlock challenge. PRF
+// eval inputs/outputs stay on the client (guarded() refuses PRF material).
+const unlockOptions = async function (session) {
+    return { status: 200, data: await unlockService().options(session.uuid) };
+};
+
+const unlockPasskey = async function (session, body) {
+    return { status: 200, data: await unlockService().unlockWithPasskey(session.uuid, body, session.client) };
+};
+
+const lock = async function (session) {
+    return { status: 200, data: await unlockService().lock(session.uuid, session.client) };
+};
+
 exports.list = guarded(list, 'read');
 exports.get = guarded(get, 'read');
 exports.put = guarded(put, 'write');
 exports.remove = guarded(remove, 'write');
+exports.unlockOptions = guarded(unlockOptions, 'sensitive');
+exports.unlockPasskey = guarded(unlockPasskey, 'sensitive');
+exports.lock = guarded(lock, 'write');

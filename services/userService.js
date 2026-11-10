@@ -147,9 +147,9 @@ const requestLogin = async function(email, { agent, referer, ip}) {
 			return fakeUser(email, { agent, referer, ip });
 		}
 
-        // Existing passkeys have no server-validated public key. Use password/MFA
-        // until the verified ceremonies are wired through both transports.
-        const hasPasskey = false;
+        // Only credentials from verified enrollment count. Legacy, never-verified
+        // passkeys (users.passkeys) do not set this flag and must re-enroll.
+        const hasPasskey = foundUser.hasVerifiedPasskey === true;
         const hasMFA = foundUser.isMFAEnabled;
 
         // Otherwise request password login
@@ -198,9 +198,9 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
         }
 
         const hasMFA = foundUser.isMFAEnabled;
-        // Existing passkeys have no server-validated public key. Use password/MFA
-        // until the verified ceremonies are wired through both transports.
-        const hasPasskey = false;
+        // Only credentials from verified enrollment count. Legacy, never-verified
+        // passkeys (users.passkeys) do not set this flag and must re-enroll.
+        const hasPasskey = foundUser.hasVerifiedPasskey === true;
 
         // If user has MFA, request MFA login
         if (hasMFA) {
@@ -218,7 +218,8 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
             {
                 email: decrypt(foundUser.email),
                 uuid: decrypt(foundUser.uuid),
-                isExtendedSession: isExtendedSession
+                isExtendedSession: isExtendedSession,
+                amr: ['pwd']
             },
             { agent, referer, ip }
         );
@@ -254,7 +255,9 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
             {
                 email: decrypt(foundUser.email),
                 uuid: decrypt(foundUser.uuid),
-                isExtendedSession: isExtendedSession
+                isExtendedSession: isExtendedSession,
+                // Reached only through the password step (request_otp token).
+                amr: ['pwd', 'otp']
             },
             { agent, referer, ip }
         );
@@ -264,14 +267,40 @@ const verifyOTP = async function({ email, uuid }, isExtendedSession, totpToken, 
     }
 }
 
-const verifyPasskey = async function() {
-    // Legacy records were never verified at enrollment. IDs are not authentication.
-    // Keep this endpoint closed until the new ceremony is integrated end to end.
-    throw generateError('Passkey re-enrollment required',
-        'Sign in with password (and MFA if enabled), then re-enroll your passkey when verified enrollment is available.', 403);
+// Passkey login: { challenge, response } from an authentication ceremony whose
+// options came from POST users/login/passkey/options (challenge bound to this
+// uuid). Verified cryptographically against credentials from verified
+// enrollment only. Anything else, notably legacy identifier-only payloads and
+// legacy never-verified passkeys, gets the re-enrollment 403.
+const verifyPasskey = async function(session, payload, client) {
+    if (!session || typeof session !== 'object' || typeof session.uuid !== 'string' || !session.uuid
+        || !payload || typeof payload !== 'object' || typeof payload.challenge !== 'string'
+        || !payload.response || typeof payload.response !== 'object') {
+        throw generateError('Passkey re-enrollment required',
+            'Sign in with password (and MFA if enabled), then re-enroll your passkey via verified enrollment.', 403);
+    }
+    // Lazy: keeps this module loadable in isolation for the legacy tests.
+    const passkeyService = require('./passkeyService.js');
+    const { enforceRateLimit } = require('./sessionPolicy.js');
+    enforceRateLimit(session.uuid, 'login');
+    await passkeyService.authenticate(session.uuid, payload, 'authentication', client);
+
+    const foundUser = await findUser({ query: { uuid: encrypt(session.uuid) } });
+    if (!foundUser) {
+        throw generateError('Unauthorized', 'User not found', 401);
+    }
+    return await login(
+        {
+            email: decrypt(foundUser.email),
+            uuid: session.uuid,
+            isExtendedSession: payload.isExtendedSession === true,
+            amr: ['webauthn']
+        },
+        client || {}
+    );
 }
 
-const login = async function({ email, uuid, isExtendedSession = false }, { agent, referer, ip}) {
+const login = async function({ email, uuid, isExtendedSession = false, amr = [] }, { agent, referer, ip}) {
     try {
         // If there are more than 10 activities, delete the oldest one
         const activities = await findAllActivities({
@@ -315,7 +344,8 @@ const login = async function({ email, uuid, isExtendedSession = false }, { agent
                 uuid: uuid
             },
             isExtendedSession,
-            { agent, referer, ip }
+            { agent, referer, ip },
+            { amr }
         );
 
         // Save new token on database
@@ -342,6 +372,8 @@ const updateLastUpdatedDate = async function({ email, uuid }, last_update_date) 
 const update = async function({ email, uuid }, payload) {
     payload = payload || {};
     if (payload.passkeys !== undefined) {
+        // Raw client-supplied passkeys are never accepted. The only write path is
+        // verified enrollment (POST users/passkeys/options + POST users/passkeys).
         throw generateError('Passkey re-enrollment required', 'Use verified enrollment; client-supplied passkeys are not accepted.', 403);
     }
     try {

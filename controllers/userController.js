@@ -87,9 +87,42 @@ const verifyOTP = async function ({ authorization }, { totpToken, isExtendedSess
 	}
 }
 
-const verifyPasskey = async function (_headers, payload) {
-    return throwError(generateError('Passkey re-enrollment required',
-        'Sign in with password (and MFA if enabled), then re-enroll your passkey when verified enrollment is available.', 403));
+// Real passkey login (P1). The legacy identifier-only payload ({passkey: {id}})
+// and anything that is not a full {challenge, response} ceremony gets the
+// re-enrollment 403 before the service is touched.
+const verifyPasskey = async function ({ authorization } = {}, payload, { agent, referer, ip } = {}) {
+	try {
+		const { email, uuid } = await verifyAccessToken(authorization);
+
+		if (!uuid) {
+			throw generateError('Unauthorized', 'Invalid session.', 401);
+		}
+
+		if (!payload || typeof payload.challenge !== 'string' || !payload.response || typeof payload.response !== 'object') {
+			throw generateError('Passkey re-enrollment required',
+				'Sign in with password (and MFA if enabled), then re-enroll your passkey via verified enrollment.', 403);
+		}
+
+		const user = await userService.verifyPasskey(
+			{ email, uuid },
+			payload,
+			{ agent, referer, ip }
+		);
+
+		return {
+			status: 200,
+			data: user
+		};
+	}
+	catch (error) {
+		const response = throwError(error && typeof error.toJSON === 'function'
+			? error
+			: generateError('Error', 'Passkey login failed.', 500));
+		if (error && error.code === 429) {
+			response.headers = { 'Retry-After': String(error.retryAfterSeconds || 60) };
+		}
+		return response;
+	}
 }
 
 const register = async function({ email, password }) {

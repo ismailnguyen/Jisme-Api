@@ -22,4 +22,26 @@ function registrationFixture(opts={}){
  return f;
 }
 
-module.exports={fixture,registrationFixture,config,b64,hash};
+// Software authenticator with a persistent P-256 key: one registration, then
+// any number of signed assertions (counter, flags, origin, rpID controllable).
+function authenticator({rpID=config.rpID,origin=config.origin}={}){
+ const keys=generateKeyPairSync('ec',{namedCurve:'prime256v1'});
+ const jwk=keys.publicKey.export({format:'jwk'});
+ const cose=isoCBOR.encode(new Map([[1,2],[3,-7],[-1,1],[-2,Buffer.from(jwk.x,'base64url')],[-3,Buffer.from(jwk.y,'base64url')]]));
+ const rawId=randomBytes(32);const id=b64(rawId);
+ const authData=(rp,flags,counter,extra=Buffer.alloc(0))=>{const c=Buffer.alloc(4);c.writeUInt32BE(counter);return Buffer.concat([hash(rp),Buffer.from([flags]),c,extra]);};
+ const clientData=(type,challenge,o)=>Buffer.from(JSON.stringify({type,challenge,origin:o,crossOrigin:false}));
+ return {id,
+  register(challenge,{flags=5,origin:o=origin,rpID:r=rpID,transports=['internal'],extensions={}}={}){
+   const len=Buffer.alloc(2);len.writeUInt16BE(rawId.length);
+   const ad=authData(r,flags|64,0,Buffer.concat([Buffer.alloc(16),len,rawId,Buffer.from(cose)]));
+   return {id,rawId:id,type:'public-key',clientExtensionResults:extensions,response:{clientDataJSON:b64(clientData('webauthn.create',challenge,o)),attestationObject:b64(isoCBOR.encode(new Map([['fmt','none'],['attStmt',new Map()],['authData',ad]]))),transports}};
+  },
+  assert(challenge,{counter=1,flags=5,origin:o=origin,rpID:r=rpID,userHandle,extensions={},tamper=false}={}){
+   const ad=authData(r,flags,counter);const cd=clientData('webauthn.get',challenge,o);
+   const sig=sign('sha256',Buffer.concat([ad,hash(cd)]),keys.privateKey);if(tamper)sig[sig.length-1]^=1;
+   return {id,rawId:id,type:'public-key',clientExtensionResults:extensions,response:{clientDataJSON:b64(cd),authenticatorData:b64(ad),signature:b64(sig),...(userHandle?{userHandle}:{})}};
+  }};
+}
+
+module.exports={fixture,registrationFixture,authenticator,config,b64,hash};

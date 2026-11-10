@@ -1,11 +1,18 @@
 'use strict';
 // Client vault envelopes. See docs/vault-envelope-design.md.
-const { list, get, put, remove } = require('../../../controllers/vaultController');
+const { list, get, put, remove, unlockOptions, unlockPasskey, lock } = require('../../../controllers/vaultController');
+
+// POST-only actions; any other POST target stays 405.
+const POST_ACTIONS = {
+    'unlock/passkey/options': unlockOptions,
+    'unlock/passkey': unlockPasskey,
+    'lock': lock,
+};
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Origin, Authorization, X-Requested-With, Content-Type, Accept',
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
 };
 
 const reply = ({ status, data, headers }) => ({
@@ -48,6 +55,16 @@ exports.handler = async function ({ httpMethod, path, headers, body, queryString
             return invalid('Body must be JSON');
         }
         return reply(await put(headers, { vaultId }, payload));
+    }
+
+    if (httpMethod === 'POST' && Object.prototype.hasOwnProperty.call(POST_ACTIONS, vaultId)) {
+        let payload;
+        try {
+            payload = body ? JSON.parse(body) : {};
+        } catch (_) {
+            return invalid('Body must be JSON');
+        }
+        return reply(await POST_ACTIONS[vaultId](headers, payload));
     }
 
     if (httpMethod === 'DELETE') {
