@@ -1,11 +1,12 @@
 'use strict';
 // HTTP boundary for client vault envelopes. See docs/vault-envelope-design.md.
 const vaultService = require('../services/vaultService.js');
+const rateLimit = require('../services/vaultRateLimit.js');
 const { verifyAccessToken } = require('../utils/credentials.js');
 const { throwError, generateError } = require('../utils/errors.js');
 
 const RECENT_AUTH_MS = 300000; // destructive operations (delete, replace) need auth_time within 5 minutes
-const MAPPED_STATUS = [400, 401, 403, 404, 409, 413, 503];
+const MAPPED_STATUS = [400, 401, 403, 404, 409, 413, 429, 503];
 const REVISION_QUERY = /^(0|[1-9][0-9]{0,15})$/;
 
 // Same rule as generateFreshSessionResolver: only fully authenticated sessions
@@ -40,6 +41,12 @@ function failure(error) {
     const response = throwError(error);
     if (error.code === 409) {
         response.data.currentRevision = Number.isSafeInteger(error.currentRevision) ? error.currentRevision : 0;
+    }
+    if (error.code === 429) {
+        const seconds = Number.isSafeInteger(error.retryAfterSeconds)
+            && error.retryAfterSeconds >= 1 && error.retryAfterSeconds <= 60
+            ? error.retryAfterSeconds : 60;
+        response.headers = { 'Retry-After': String(seconds) };
     }
     return response;
 }
@@ -77,11 +84,21 @@ const remove = async function (session, params, query) {
 // their payload), then the same guard as the user endpoints: PRF inputs/outputs
 // are client-side vault unlock material and are refused anywhere in the inputs
 // the handler receives (params; body for PUT; query for DELETE).
-const guarded = (handler) => async (headers, ...inputs) => {
+// Per-owner rate limiting runs after authentication (the key is the owner hash
+// of the verified session) and before anything else, so no storage, quota or
+// validation work happens for a flooded caller. Fail closed: the limiter cannot
+// be disabled and denies on any internal fault.
+const guarded = (handler, kind) => async (headers, ...inputs) => {
     let session;
     try {
         session = await resolveSession(headers);
     } catch (error) {
+        return failure(error);
+    }
+    const verdict = rateLimit.consume(vaultService.ownerOf(session.uuid), kind);
+    if (!verdict.allowed) {
+        const error = generateError('Too many vault requests', 'Rate limit exceeded; try again later.', 429);
+        error.retryAfterSeconds = verdict.retryAfterSeconds;
         return failure(error);
     }
     try {
@@ -96,7 +113,7 @@ const guarded = (handler) => async (headers, ...inputs) => {
     }
 };
 
-exports.list = guarded(list);
-exports.get = guarded(get);
-exports.put = guarded(put);
-exports.remove = guarded(remove);
+exports.list = guarded(list, 'read');
+exports.get = guarded(get, 'read');
+exports.put = guarded(put, 'write');
+exports.remove = guarded(remove, 'write');

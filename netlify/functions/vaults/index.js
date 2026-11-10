@@ -8,9 +8,9 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS'
 };
 
-const reply = ({ status, data }) => ({
+const reply = ({ status, data, headers }) => ({
     statusCode: status,
-    headers: CORS_HEADERS,
+    headers: { ...CORS_HEADERS, ...headers },
     body: JSON.stringify(data)
 });
 
