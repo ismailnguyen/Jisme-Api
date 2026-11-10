@@ -122,14 +122,24 @@ const enroll = async function (uuid, body, client) {
     return { id: verified.id, transports, createdAt };
 };
 
+// Keep IDs aligned with the client normalization for old user documents.
+const legacyId = (entry) => entry.id ?? entry.credentialId ?? entry.passkey?.id;
+
 const list = async function (uuid) {
     const items = await storage(() => credentials.listByUser(uuid));
-    return items.map((c) => ({
+    const user = await storage(() => findUser({ query: { uuid: encrypt(uuid) } }));
+    const legacy = Array.isArray(user?.passkeys) ? user.passkeys : [];
+    return [...items.map((c) => ({
         id: c.credentialId,
         transports: c.transports || [],
         createdAt: c.createdAt,
         lastUsedAt: c.lastUsedAt || null,
-    }));
+    })), ...legacy.filter((p) => isPlainObject(p) && typeof legacyId(p) === 'string'
+        && !items.some((c) => c.credentialId === legacyId(p))).map((p) => ({
+        id: legacyId(p),
+        deviceName: p.deviceName,
+        verified: false,
+    }))];
 };
 
 // Requires the CURRENT password even inside a password session.
@@ -148,7 +158,18 @@ const remove = async function (uuid, credentialId, body, client) {
     }
     const removed = await storage(() => credentials.remove(uuid, credentialId));
     if (!removed) {
-        throw generateError('Not found', 'Passkey not found.', 404);
+        const legacy = Array.isArray(confirmed.passkeys) ? confirmed.passkeys : [];
+        const matches = (entry) => isPlainObject(entry) && legacyId(entry) === credentialId;
+        if (!legacy.some(matches)) {
+            throw generateError('Not found', 'Passkey not found.', 404);
+        }
+        const updated = await storage(() => updateUser({
+            query: { uuid: encrypt(uuid) },
+            newValue: { passkeys: legacy.filter((entry) => !matches(entry)) },
+        }));
+        if (!updated) throw generateError('Not found', 'Passkey not found.', 404);
+        await audit.record(uuid, 'passkey_deleted', client);
+        return { id: credentialId, removed: true, legacy: true };
     }
     await setPasskeyFlag(uuid);
     // An unlock obtained with this passkey does not outlive it.

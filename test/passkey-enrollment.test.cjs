@@ -254,3 +254,39 @@ test('WebAuthn rpID/origin come from env with jisme.app fallbacks', () => {
         process.env.WEBAUTHN_RP_ID = saved.id; process.env.WEBAUTHN_ORIGIN = saved.origin;
     }
 });
+
+for (const [name, entry, id] of [
+    ['nested id', { deviceName: 'Old phone', passkey: { id: 'legacy-nested', publicKey: 'private-detail' } }, 'legacy-nested'],
+    ['top-level id', { id: 'legacy-top', passkey: { id: 'older-id' } }, 'legacy-top'],
+    ['credentialId', { credentialId: 'legacy-credential' }, 'legacy-credential'],
+]) {
+    test(`legacy ${name} round-trips from list to password-confirmed deletion`, async () => {
+        const uuid = 'legacy-delete-' + id;
+        const other = { passkey: { id: 'keep-me' } };
+        h.seedUser(uuid, { legacyPasskeys: [entry, other] });
+        const listed = await passkeys.list(h.strong(uuid));
+        assert.equal(listed.status, 200);
+        assert.equal(listed.data.passkeys[0].id, id);
+        assert.equal(listed.data.passkeys[0].verified, false);
+        assert.doesNotMatch(JSON.stringify(listed.data), /publicKey|private-detail/);
+        assert.equal((await passkeys.remove(h.strong(uuid), { id }, {}, h.client)).status, 400);
+        assert.equal((await passkeys.remove(h.strong(uuid), { id }, { password: 'wrong' }, h.client)).status, 401);
+        const removed = await passkeys.remove(h.strong(uuid), { id }, { password: 'correct horse battery' }, h.client);
+        assert.equal(removed.status, 200, JSON.stringify(removed.data));
+        assert.deepEqual(h.userDoc(uuid).passkeys, [other]);
+        assert.ok(h.auditActions(uuid).includes('passkey_deleted'));
+        assert.equal((await passkeys.remove(h.strong(uuid), { id: 'unknown' }, { password: 'correct horse battery' }, h.client)).status, 404);
+    });
+}
+
+test('verified deletion uses credential store and leaves matching users.passkeys entry intact', async () => {
+    const uuid = 'legacy-verified-collision';
+    h.seedUser(uuid);
+    const { device } = await enroll(uuid);
+    const legacy = { passkey: { id: device.id } };
+    h.userDoc(uuid).passkeys = [legacy];
+    const removed = await passkeys.remove(h.strong(uuid), { id: device.id }, { password: 'correct horse battery' }, h.client);
+    assert.equal(removed.status, 200);
+    assert.equal(h.credentials().some(c => c.credentialId === device.id), false);
+    assert.deepEqual(h.userDoc(uuid).passkeys, [legacy]);
+});
