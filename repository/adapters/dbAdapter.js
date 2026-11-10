@@ -11,6 +11,10 @@ const {
 // index) and only single-document atomic operations. Kept apart from the
 // generic path, which rewrites _id into ObjectId and strips it on insert.
 const VAULT_COLLECTION = 'vault_envelopes';
+// Same deterministic-_id, single-document-atomic semantics: verified WebAuthn
+// credentials (unique credential id, counter compare-and-set), recovery code
+// hashes (one-time compare-and-set rotation) and per-user vault unlock state.
+const ATOMIC_COLLECTIONS = [VAULT_COLLECTION, 'webauthn_credentials', 'recovery_codes', 'vault_unlock_state'];
 const DUPLICATE_KEY = 11000;
 
 const vaultQuery = async function (collection, { action, filter, projection, document, update }) {
@@ -103,7 +107,7 @@ const sendQuery = async function (collectionName, {
     const dbConnection = await connection.getInstance();
     const collection = dbConnection.collection(collectionName);
 
-    if (collectionName === VAULT_COLLECTION) {
+    if (ATOMIC_COLLECTIONS.includes(collectionName)) {
         return vaultQuery(collection, { action, filter, projection, document, update });
     }
     if (collectionName === QUOTA_COLLECTION) {

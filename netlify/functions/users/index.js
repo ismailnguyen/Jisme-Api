@@ -9,6 +9,8 @@ const {
     update,
     getInformation
 } = require('../../../controllers/userController')
+const passkeys = require('../../../controllers/passkeyController');
+const recovery = require('../../../controllers/recoveryController');
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -31,7 +33,51 @@ const extractClient = function ({ headers }, context) {
 	};
 }
 
+// New security endpoints send headers (CORS + Retry-After) properly.
+const reply = ({ status, data, headers }) => ({
+    statusCode: status,
+    headers: { ...CORS_HEADERS, ...headers },
+    body: JSON.stringify(data)
+});
+
+const invalidJson = () => reply({ status: 400, data: { error: { message: 'Invalid user input', reason: 'Body must be JSON' } } });
+
+const parseBody = (body) => {
+    if (body === null || body === undefined || body === '') return {};
+    return JSON.parse(body);
+};
+
+const actionOf = (path) => (typeof path === 'string' ? path.split('users/')[1] : undefined);
+
+// POST users/<action> handled by the passkey / recovery controllers.
+const SECURITY_POST_ACTIONS = {
+    'passkeys/options': (headers, body, client) => passkeys.enrollmentOptions(headers, body, client),
+    'passkeys': (headers, body, client) => passkeys.enroll(headers, body, client),
+    'login/passkey/options': (headers, body, client) => passkeys.loginOptions(headers, body, client),
+    'recovery': (headers, body, client) => recovery.issue(headers, body, client),
+    'recovery/verify': (headers, body, client) => recovery.verify(headers, body, client),
+};
+
+const users_delete = async function ({ headers, path, body }, context) {
+    const action = actionOf(path) || '';
+    const match = /^passkeys\/([A-Za-z0-9_-]+)$/.exec(action);
+    if (!match) {
+        return { statusCode: 404, headers: CORS_HEADERS, body: 'Action not found' };
+    }
+    let jsonBody;
+    try {
+        jsonBody = parseBody(body);
+    } catch (_) {
+        return invalidJson();
+    }
+    return reply(await passkeys.remove(headers, { id: match[1] }, jsonBody, extractClient({ headers }, context)));
+}
+
 const users_get = async function ({ headers, path }, context) {
+    if (actionOf(path) === 'passkeys') {
+        return reply(await passkeys.list(headers));
+    }
+
     const { status, data } = await getInformation(headers);
 
     return {
@@ -56,7 +102,16 @@ const users_post = async function ({ headers, path, body }, context) {
     const action = path.split('users/')[1];
 
     const client = extractClient({ headers }, context);
-    const jsonBody = JSON.parse(body);
+    let jsonBody;
+    try {
+        jsonBody = parseBody(body);
+    } catch (_) {
+        return invalidJson();
+    }
+
+    if (action && Object.prototype.hasOwnProperty.call(SECURITY_POST_ACTIONS, action)) {
+        return reply(await SECURITY_POST_ACTIONS[action](headers, jsonBody, client));
+    }
 
     if (action) {
         if (action === 'login') {
@@ -80,13 +135,7 @@ const users_post = async function ({ headers, path, body }, context) {
         }
 
         if (action === 'login/passkey') {
-            const { status, data } = await verifyPasskey(headers, jsonBody, client);
-
-            return {
-                statusCode: status,
-                ...CORS_HEADERS,
-                body: JSON.stringify(data)
-            };
+            return reply(await verifyPasskey(headers, jsonBody, client));
         }
 
         if (action === 'login/otp') {
@@ -122,6 +171,7 @@ exports.handler = async function (event, context) {
         'GET': users_get,
         'PUT': users_put,
         'POST': users_post,
+        'DELETE': users_delete,
         'OPTIONS': cors_options
     };
 

@@ -19,6 +19,14 @@ const getMockStore = () => {
 
 const mockStore = getMockStore();
 
+// Collections served by the string-_id atomic branch -> mock store key.
+const ATOMIC_COLLECTIONS = Object.freeze({
+    vault_envelopes: 'vaultEnvelopes',
+    webauthn_credentials: 'webauthnCredentials',
+    recovery_codes: 'recoveryCodes',
+    vault_unlock_state: 'vaultUnlockState',
+});
+
 // Helper to generate MongoDB-like Object IDs
 const generateObjectId = () => {
     const timestamp = Math.floor(new Date().getTime() / 1000).toString(16);
@@ -81,10 +89,12 @@ const sendQuery = async function (collectionName, {
         throw new Error('Unsupported WebAuthn challenge action');
     }
 
-    // Test/development only: single-process equivalent of the Mongo vault branch.
-    if (collectionName === 'vault_envelopes') {
-        const vaults = mockStore.vaultEnvelopes ||= [];
-        // Mongo equality semantics used by the vault repository: dotted paths, and
+    // Test/development only: single-process equivalent of the Mongo string-_id
+    // branch (vault envelopes, verified WebAuthn credentials, recovery code
+    // hashes, vault unlock state).
+    if (ATOMIC_COLLECTIONS[collectionName]) {
+        const items = mockStore[ATOMIC_COLLECTIONS[collectionName]] ||= [];
+        // Mongo equality semantics used by the repositories: dotted paths, and
         // `null` matches both null and missing values.
         const valueAt = (item, key) => key.split('.').reduce((value, part) => (value == null ? undefined : value[part]), item);
         const matches = (item) => Object.keys(filter || {}).every((key) => (filter[key] === null
@@ -92,23 +102,23 @@ const sendQuery = async function (collectionName, {
             : valueAt(item, key) === filter[key]));
         const copy = (item) => item ? JSON.parse(JSON.stringify(item)) : null;
         if (action === 'insertOne') {
-            if (vaults.some((item) => item._id === document._id)) return { data: { inserted: false } };
-            vaults.push(copy(document));
+            if (items.some((item) => item._id === document._id)) return { data: { inserted: false } };
+            items.push(copy(document));
             return { data: { inserted: true } };
         }
         if (action === 'findOneAndUpdate') {
-            const item = vaults.find(matches);
+            const item = items.find(matches);
             if (item) Object.assign(item, copy(update));
             return { data: { document: copy(item) } };
         }
         if (action === 'findOneAndDelete') {
-            const index = vaults.findIndex(matches);
-            return { data: { document: index < 0 ? null : copy(vaults.splice(index, 1)[0]) } };
+            const index = items.findIndex(matches);
+            return { data: { document: index < 0 ? null : copy(items.splice(index, 1)[0]) } };
         }
-        if (action === 'findOne') return { data: { document: copy(vaults.find(matches)) } };
-        if (action === 'find') return { data: { documents: vaults.filter(matches).map(copy) } };
-        if (action === 'count') return vaults.filter(matches).length;
-        throw generateError('Mock DB error', 'Unsupported vault action', 500);
+        if (action === 'findOne') return { data: { document: copy(items.find(matches)) } };
+        if (action === 'find') return { data: { documents: items.filter(matches).map(copy) } };
+        if (action === 'count') return items.filter(matches).length;
+        throw generateError('Mock DB error', 'Unsupported atomic collection action', 500);
     }
 
     // Test/development only: single-process equivalent of the Mongo quota branch.

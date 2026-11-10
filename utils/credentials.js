@@ -27,7 +27,12 @@ const isTotpValid = function (totpToken, totpSecret) {
   }
 }
 
-const generateAccessToken = function ({ email, uuid, extendedExpiration, step, isAuthorized, client, authTime }) {
+const AMR_VALUES = ['pwd', 'otp', 'webauthn'];
+const sanitizeAmr = (amr) => Array.isArray(amr)
+  ? AMR_VALUES.filter((value) => amr.includes(value))
+  : undefined;
+
+const generateAccessToken = function ({ email, uuid, extendedExpiration, step, isAuthorized, client, authTime, amr }) {
   const payload = {
       email: email,
       uuid: uuid,
@@ -41,6 +46,14 @@ const generateAccessToken = function ({ email, uuid, extendedExpiration, step, i
   // issuance (iat) or refresh time. Pre-auth tokens omit it.
   if (authTime !== undefined && authTime !== null) {
     payload.auth_time = authTime;
+  }
+
+  // amr (RFC 8176 style) records HOW the session was authenticated:
+  // 'pwd' (password), 'otp' (TOTP), 'webauthn' (verified passkey). Step-up
+  // endpoints (passkey enrollment, recovery) require 'pwd' (+ 'otp' with MFA).
+  const methods = sanitizeAmr(amr);
+  if (methods && methods.length) {
+    payload.amr = methods;
   }
 
   return sign(payload,
@@ -62,7 +75,7 @@ const generateUnsignedAccessToken = function ({ email, uuid, step }, client) {
   });
 }
 
-const generateSignedAccessToken = function ({ email, uuid}, extendedExpiration, client) {
+const generateSignedAccessToken = function ({ email, uuid}, extendedExpiration, client, { amr } = {}) {
   return generateAccessToken({
     email: email,
     uuid: uuid,
@@ -70,7 +83,8 @@ const generateSignedAccessToken = function ({ email, uuid}, extendedExpiration, 
     isAuthorized: true,
     extendedExpiration: extendedExpiration,
     client: client,
-    authTime: Math.floor(Date.now() / 1000)
+    authTime: Math.floor(Date.now() / 1000),
+    amr: amr
   });
 }
 
@@ -127,7 +141,7 @@ const verifyAccessToken = async function (authorization) {
   }
 
   try {
-    const { email, uuid, step, isAuthorized, client, auth_time } = await verify(accessToken, token_master_secret);
+    const { email, uuid, step, isAuthorized, client, auth_time, amr } = await verify(accessToken, token_master_secret);
   
     return {
       email,
@@ -135,6 +149,7 @@ const verifyAccessToken = async function (authorization) {
       step,
       isAuthorized,
       auth_time: Number.isSafeInteger(auth_time) ? auth_time : undefined,
+      amr: sanitizeAmr(amr) || [],
       client: {
         agent: client && client.agent ? client.agent : 'Unknown',
         referer: client && client.referer ? client.referer : 'Unknown',

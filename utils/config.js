@@ -29,4 +29,9 @@ module.exports = {
     encryption_private_iv: process.env.ENCRYPTION_PRIVATE_IV,
     hash_salt: process.env.HASH_SALT,
     login_delay_in_seconds: process.env.LOGIN_DELAY_IN_SECONDS,
+
+    // WebAuthn relying party. Fallbacks are the production values; they are
+    // validated (HTTPS origin under rpID) by services/webauthnVerifier.js.
+    webauthn_rp_id: process.env.WEBAUTHN_RP_ID || 'jisme.app',
+    webauthn_origin: process.env.WEBAUTHN_ORIGIN || 'https://www.jisme.app',
 }

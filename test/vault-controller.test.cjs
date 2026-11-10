@@ -48,7 +48,8 @@ test('authenticated lifecycle: create 201, read, list, replace 200, stale 409 wi
     const owner = session('owner-1');
     let r = await controller.put(owner, { vaultId: 'primary' }, body(0, 1));
     assert.equal(r.status, 201);
-    assert.deepEqual(Object.keys(r.data).sort(), ['revision', 'updatedAt', 'vaultId']);
+    // First-run setup also returns the one-time recovery code (P1 recovery); never the envelope.
+    assert.deepEqual(Object.keys(r.data).sort(), ['recoveryCode', 'recoveryNotice', 'revision', 'updatedAt', 'vaultId']);
 
     r = await controller.get(owner, { vaultId: 'primary' });
     assert.equal(r.status, 200);
