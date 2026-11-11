@@ -241,14 +241,15 @@ test('Express user routes mount the enrollment endpoints', () => {
 
 test('WebAuthn rpID/origin come from env; rpID falls back to the origin hostname', () => {
     const saved = { id: process.env.WEBAUTHN_RP_ID, origin: process.env.WEBAUTHN_ORIGIN };
-    delete process.env.WEBAUTHN_RP_ID; delete process.env.WEBAUTHN_ORIGIN;
+    // Empty strings (not deletions): a developer dotenv file must not leak into this test.
+    process.env.WEBAUTHN_RP_ID = ''; process.env.WEBAUTHN_ORIGIN = 'https://app.example.invalid';
     const file = require.resolve('../utils/config.js');
     const cached = require.cache[file];
     delete require.cache[file];
     try {
         const fresh = require('../utils/config.js');
-        assert.equal(fresh.webauthn_rp_id, 'www.jisme.app');
-        assert.equal(fresh.webauthn_origin, 'https://www.jisme.app');
+        assert.equal(fresh.webauthn_origin, 'https://app.example.invalid');
+        assert.equal(fresh.webauthn_rp_id, 'app.example.invalid');
     } finally {
         require.cache[file] = cached;
         process.env.WEBAUTHN_RP_ID = saved.id; process.env.WEBAUTHN_ORIGIN = saved.origin;
