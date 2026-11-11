@@ -5,10 +5,11 @@
 // - A credential is stored only after verifyRegistrationResponse succeeded
 //   against a server-issued, single-use, user-bound challenge (TTL 2 min) with
 //   the configured rpID/origin and user verification.
-// - Authentication only ever uses credentials loaded from that trusted store,
-//   filtered by the user the challenge was issued to. Legacy, never-verified
-//   passkeys (users.passkeys) are not consulted and fail with the
-//   re-enrollment 403.
+// - Authentication uses credentials from that trusted store, filtered by the
+//   user the challenge was issued to, plus legacy users.passkeys entries whose
+//   stored create() attestation yields a public key: those are verified with
+//   the same signature check and promoted into the store on first success.
+//   Anything else fails with the re-enrollment 403.
 // - Sign counts must strictly increase (when the authenticator uses them) and
 //   are advanced with a compare-and-set, so a cloned authenticator or a
 //   concurrent replay is detected and refused.
@@ -18,12 +19,14 @@ const {
     generateAuthenticationOptions,
     generateRegistrationOptions,
 } = require('@simplewebauthn/server');
+const { decodeAttestationObject, parseAuthenticatorData, isoBase64URL } = require('@simplewebauthn/server/helpers');
+const { createHash } = require('node:crypto');
 const { webauthn_rp_id, webauthn_origin } = require('../utils/config.js');
 const { createVerifier } = require('./webauthnVerifier.js');
 const challenges = require('../repository/webauthnChallengeRepository.js');
 const credentials = require('../repository/webauthnCredentialRepository.js');
 const { findOne: findUser, updateOne: updateUser } = require('../repository/userRepository.js');
-const { encrypt, hash } = require('../utils/cypher.js');
+const { encrypt, decrypt, hash } = require('../utils/cypher.js');
 const { generateError } = require('../utils/errors.js');
 const audit = require('./auditLog.js');
 
@@ -138,6 +141,55 @@ const enroll = async function (uuid, body, client) {
 // Keep IDs aligned with the client normalization for old user documents.
 const legacyId = (entry) => entry.id ?? entry.credentialId ?? entry.passkey?.id;
 
+// The previous client enrolled without rp.id, so its credentials are scoped to
+// the exact host it ran on; the configured rpID may be a parent domain.
+const LEGACY_RP_IDS = [...new Set([webauthn_rp_id, new URL(webauthn_origin).hostname])];
+const rpIdOfHash = (rpIdHash) => LEGACY_RP_IDS.find((rp) => createHash('sha256').update(rp).digest().equals(Buffer.from(rpIdHash)));
+
+// Legacy users.passkeys entries hold the full create() response. Its
+// attestationObject carries the public key, so the passkey can be verified
+// cryptographically without re-enrollment. userHandle: the old client passed the
+// uuid string where webauthn-json expected base64url, so authenticators echo it back
+// as that same string. Entries that cannot be decoded stay legacy (verified: false).
+function decodeLegacyPasskey(uuid, entry) {
+    try {
+        const id = legacyId(entry);
+        const attestation = entry.passkey?.response?.attestationObject;
+        if (typeof id !== 'string' || typeof attestation !== 'string') return null;
+        const authData = parseAuthenticatorData(decodeAttestationObject(isoBase64URL.toBuffer(attestation)).get('authData'));
+        const rpId = rpIdOfHash(authData.rpIdHash);
+        if (!rpId || !authData.credentialID || !authData.credentialPublicKey
+            || isoBase64URL.fromBuffer(authData.credentialID) !== id) return null;
+        return {
+            credentialId: id,
+            publicKey: isoBase64URL.fromBuffer(authData.credentialPublicKey),
+            counter: authData.counter,
+            transports: sanitizeTransports(entry.passkey),
+            name: sanitizeName(entry.deviceName),
+            rpId,
+            userHandle: uuid,
+            legacy: true,
+            promote: true, // not yet in the credential store
+            validated: true,
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+const decodeLegacyPasskeys = (user) => (Array.isArray(user?.passkeys) ? user.passkeys : [])
+    .filter(isPlainObject)
+    .map((entry) => decodeLegacyPasskey(decrypt(user.uuid), entry))
+    .filter(Boolean);
+
+// Store credentials first, then legacy ones not yet promoted.
+async function usableCredentials(uuid) {
+    const items = await storage(() => credentials.listByUser(uuid));
+    const user = await storage(() => findUser({ query: { uuid: encrypt(uuid) } }));
+    const legacy = decodeLegacyPasskeys(user).filter((l) => !items.some((c) => c.credentialId === l.credentialId));
+    return [...items, ...legacy];
+}
+
 const list = async function (uuid) {
     const items = await storage(() => credentials.listByUser(uuid));
     const user = await storage(() => findUser({ query: { uuid: encrypt(uuid) } }));
@@ -201,18 +253,22 @@ const remove = async function (uuid, credentialId, body, client) {
 
 const authenticationOptions = async function (uuid, purpose) {
     if (!AUTH_PURPOSES.includes(purpose)) throw generateError('Invalid passkey input', 'Unknown ceremony.', 400);
-    const items = await storage(() => credentials.listByUser(uuid));
+    const items = await usableCredentials(uuid);
     const challenge = await storage(() => challenges.issue(uuid, purpose, Date.now(), CHALLENGE_TTL_MS));
+    // Legacy credentials live under the host they were enrolled on; when every
+    // usable credential shares that other rpID, the ceremony must use it.
+    const rpIDs = new Set(items.map((c) => c.rpId || webauthn_rp_id));
+    const rpID = rpIDs.size === 1 && !rpIDs.has(webauthn_rp_id) ? [...rpIDs][0] : webauthn_rp_id;
     // No `extensions` here: for vault unlock the client adds its own PRF eval
     // input locally and strips clientExtensionResults.prf before posting.
     return generateAuthenticationOptions({
-        rpID: webauthn_rp_id,
+        rpID,
         challenge: Buffer.from(challenge, 'base64url'),
-        userVerification: 'required',
+        // Legacy passkeys were enrolled with 'preferred'; keep them usable.
+        userVerification: items.some((c) => c.legacy) ? 'preferred' : 'required',
         timeout: CHALLENGE_TTL_MS,
-        // Transports are a client hint: pin to 'internal' (even for credentials
-        // stored as hybrid/cable) so iOS does not offer the hybrid QR flow.
-        allowCredentials: items.map((c) => ({ id: c.credentialId, transports: ['internal'] })),
+        // Transports as stored: the browser decides (platform, USB key, QR/hybrid).
+        allowCredentials: items.map((c) => ({ id: c.credentialId, ...(c.transports?.length ? { transports: c.transports } : {}) })),
     });
 };
 
@@ -223,10 +279,11 @@ const authenticate = async function (uuid, body, purpose, client) {
     if (!await storage(() => challenges.consume(challenge, uuid, purpose, Date.now()))) {
         throw generateError('Unauthorized', 'Invalid, expired or consumed challenge; request new options.', 401);
     }
-    const stored = await storage(() => credentials.findForUser(uuid, response.id));
+    const stored = await storage(() => credentials.findForUser(uuid, response.id))
+        || (await usableCredentials(uuid)).find((c) => c.promote && c.credentialId === response.id);
     if (!stored) {
-        // Unknown here = legacy (never verified) passkey, removed passkey or
-        // another user's credential: all must re-enroll through verification.
+        // Unknown here = undecodable legacy passkey, removed passkey or another
+        // user's credential: all must re-enroll through verification.
         await audit.record(uuid, 'passkey_auth_failed', client);
         throw reenrollRequired();
     }
@@ -236,7 +293,10 @@ const authenticate = async function (uuid, body, purpose, client) {
             response,
             challenge,
             userId: uuid,
-            credential: { id: stored.credentialId, publicKey: stored.publicKey, counter: stored.counter, userId: uuid, validated: stored.validated === true },
+            credential: {
+                id: stored.credentialId, publicKey: stored.publicKey, counter: stored.counter, userId: uuid,
+                validated: stored.validated === true, legacy: stored.legacy === true, rpId: stored.rpId, userHandle: stored.userHandle,
+            },
         });
     } catch (error) {
         const cloned = /counter/i.test(error && error.message);
@@ -244,6 +304,23 @@ const authenticate = async function (uuid, body, purpose, client) {
         throw generateError('Unauthorized', cloned
             ? 'Passkey sign count did not increase; this authenticator may be cloned.'
             : 'Passkey verification failed.', 401);
+    }
+    if (stored.promote) {
+        // First verified use of a legacy passkey: promote it into the store (the
+        // users.passkeys entry is left as is). A concurrent promotion loses the
+        // exclusive insert and is refused like any counter race.
+        const inserted = await storage(() => credentials.insert(uuid, {
+            credentialId: stored.credentialId, publicKey: stored.publicKey, counter: info.newCounter,
+            transports: stored.transports, createdAt: new Date().toISOString(), name: stored.name,
+            rpId: stored.rpId, userHandle: stored.userHandle, legacy: true,
+        }));
+        if (!inserted) {
+            await audit.record(uuid, 'passkey_clone_suspected', client);
+            throw generateError('Unauthorized', 'Concurrent use of this passkey was detected; try again.', 401);
+        }
+        await setPasskeyFlag(uuid);
+        await audit.record(uuid, 'passkey_migrated', client);
+        return { credentialId: stored.credentialId };
     }
     const advanced = await storage(() => credentials.compareAndSetCounter(uuid, stored.credentialId, stored.counter, {
         counter: info.newCounter,
@@ -260,6 +337,7 @@ exports.CHALLENGE_TTL_MS = CHALLENGE_TTL_MS;
 exports.MAX_PASSKEYS_PER_USER = MAX_PASSKEYS_PER_USER;
 exports.REENROLL_MESSAGE = REENROLL_MESSAGE;
 exports.REENROLL_REASON = REENROLL_REASON;
+exports.decodeLegacyPasskeys = decodeLegacyPasskeys;
 exports.registrationOptions = registrationOptions;
 exports.enroll = enroll;
 exports.list = list;

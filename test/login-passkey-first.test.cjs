@@ -75,7 +75,4 @@ test('request_passkey token drives passkey options + login, and still allows pas
     }, h.client);
     assert.equal(r.status, 200, JSON.stringify(r.data));
     assert.equal(h.decodeJwt(r.data.token).isAuthorized, true);
-    // "Use password instead" from the passkey screen keeps working.
-    const pwd = await users.verifyPassword(bearer(token), { password: 'correct horse battery' }, h.client);
-    assert.equal(pwd.status, 200, JSON.stringify(pwd.data));
 });

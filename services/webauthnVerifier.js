@@ -34,34 +34,41 @@ function checkResponse(response) {
     }
 }
 
+// Local development runs over plain http://localhost; never in production.
+const isLocalDev = (url) => process.env.NODE_ENV !== 'production'
+    && url.protocol === 'http:' && url.hostname === 'localhost';
+
 function createVerifier({ origin, rpID }) {
     const url = new URL(origin);
-    if (url.protocol !== 'https:' || url.origin !== origin || url.username || url.password
+    if ((url.protocol !== 'https:' && !isLocalDev(url)) || url.origin !== origin || url.username || url.password
         || typeof rpID !== 'string' || !/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(rpID)
         || !(url.hostname === rpID || url.hostname.endsWith('.' + rpID))) {
         throw new Error('Explicit HTTPS origin and matching DNS rpID required');
     }
 
     return {
+        // credential comes from trusted server storage. A credential decoded from
+        // a legacy users.passkeys attestation carries `legacy: true`, its own rpId
+        // and userHandle encoding, and was enrolled with userVerification
+        // 'preferred', so UV is not demanded for it.
         async authentication({ response, challenge, credential, userId }) {
             checkResponse(response);
             decode(challenge);
-            // credential must be loaded from trusted server storage, never request JSON.
             if (!userId || credential?.validated !== true || credential.userId !== userId
                 || credential.id !== response.id || !Number.isSafeInteger(credential.counter)
                 || credential.counter < 0) {
                 throw new Error('Unverified legacy credential or wrong user; sign in with password and re-enroll');
             }
-            if (response.response.userHandle != null
-                && response.response.userHandle !== Buffer.from(userId).toString('base64url')) {
+            const expectedHandle = credential.userHandle || Buffer.from(userId).toString('base64url');
+            if (response.response.userHandle != null && response.response.userHandle !== expectedHandle) {
                 throw new Error('Wrong userHandle');
             }
             const result = await verifyAuthenticationResponse({
                 response,
                 expectedChallenge: challenge,
                 expectedOrigin: origin,
-                expectedRPID: rpID,
-                requireUserVerification: true,
+                expectedRPID: credential.rpId || rpID,
+                requireUserVerification: credential.legacy !== true,
                 credential: {
                     id: credential.id,
                     publicKey: new Uint8Array(decode(credential.publicKey)),

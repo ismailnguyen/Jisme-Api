@@ -13,12 +13,14 @@ const idOf = (credentialId) => keyOf('jisme.webauthn.credential.v1', credentialI
 exports.ownerOf = ownerOf;
 
 // Globally unique credential id: a second registration of the same id fails.
-exports.insert = async function (uuid, { credentialId, publicKey, counter, transports, createdAt, name }) {
+// rpId/userHandle/legacy are only set for passkeys promoted from users.passkeys.
+exports.insert = async function (uuid, { credentialId, publicKey, counter, transports, createdAt, name, rpId, userHandle, legacy }) {
     assertSupported();
     return repository.insertOneExclusive(collection, { document: {
         _id: idOf(credentialId), credentialId, owner: ownerOf(uuid), publicKey, counter,
         transports, validated: true, createdAt, lastUsedAt: null,
         ...(typeof name === 'string' && name ? { name } : {}),
+        ...(legacy ? { rpId, userHandle, legacy: true } : {}),
     } });
 };
 

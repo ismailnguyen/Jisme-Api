@@ -15,6 +15,7 @@ Object.assign(process.env, {
     DB_USERS_COLLECTION: 'users',
     DB_USERS_ACTIVITY_LOG_COLLECTION: 'users_activity_log',
     DB_ACCOUNTS_COLLECTION: 'accounts',
+    LOGIN_DELAY_IN_SECONDS: '300',
     WEBAUTHN_RP_ID: config.rpID,
     WEBAUTHN_ORIGIN: config.origin,
 });

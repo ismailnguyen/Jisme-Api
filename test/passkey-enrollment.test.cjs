@@ -155,11 +155,11 @@ test('re-registering an existing credential id is a 409; options exclude enrolle
     assert.equal(r.status, 409);
 });
 
-test('PUT /users with a raw passkeys array stays 403', async () => {
-    h.seedUser('enr-10');
+test('PUT /users ignores a client-supplied passkeys array (previous client still sends it)', async () => {
+    h.seedUser('enr-10', { legacyPasskeys: [{ passkey: { id: 'keep' } }] });
     const r = await users.update(h.strong('enr-10'), { passkeys: [{ id: 'x', publicKey: 'y', validated: true }] });
-    assert.equal(r.status, 403);
-    assert.match(r.data.error.reason, /verified enrollment/i);
+    assert.equal(r.status, 200, JSON.stringify(r.data));
+    assert.deepEqual(h.userDoc('enr-10').passkeys, [{ passkey: { id: 'keep' } }]);
 });
 
 test('list returns only the caller\'s validated passkeys, never public keys', async () => {
@@ -239,7 +239,7 @@ test('Express user routes mount the enrollment endpoints', () => {
     }
 });
 
-test('WebAuthn rpID/origin come from env with jisme.app fallbacks', () => {
+test('WebAuthn rpID/origin come from env; rpID falls back to the origin hostname', () => {
     const saved = { id: process.env.WEBAUTHN_RP_ID, origin: process.env.WEBAUTHN_ORIGIN };
     delete process.env.WEBAUTHN_RP_ID; delete process.env.WEBAUTHN_ORIGIN;
     const file = require.resolve('../utils/config.js');
@@ -247,7 +247,7 @@ test('WebAuthn rpID/origin come from env with jisme.app fallbacks', () => {
     delete require.cache[file];
     try {
         const fresh = require('../utils/config.js');
-        assert.equal(fresh.webauthn_rp_id, 'jisme.app');
+        assert.equal(fresh.webauthn_rp_id, 'www.jisme.app');
         assert.equal(fresh.webauthn_origin, 'https://www.jisme.app');
     } finally {
         require.cache[file] = cached;

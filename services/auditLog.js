@@ -6,7 +6,7 @@ const { encrypt } = require('../utils/cypher.js');
 
 const ACTIONS = Object.freeze([
     'passkey_enrolled', 'passkey_deleted', 'passkey_delete_failed', 'passkey_auth_failed',
-    'passkey_clone_suspected', 'vault_unlocked', 'vault_locked',
+    'passkey_clone_suspected', 'passkey_migrated', 'vault_unlocked', 'vault_locked',
     'recovery_code_issued', 'recovery_used', 'recovery_failed',
 ]);
 

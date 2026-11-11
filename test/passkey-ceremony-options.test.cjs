@@ -1,11 +1,10 @@
 'use strict';
-// WebAuthn ceremonies are restricted to the local device (Face ID / Touch ID /
-// Windows Hello): no hybrid QR / external password-manager flow on iOS.
+// WebAuthn ceremony options.
 // - registration: preferredAuthenticatorType 'localDevice' → the real
 //   @simplewebauthn/server output carries hints ['client-device'] and
 //   authenticatorSelection.authenticatorAttachment 'platform'; residentKey 'required'.
-// - authentication: every allowCredentials entry is pinned to ['internal'],
-//   whatever transports the stored credential declared.
+// - authentication: allowCredentials carry the transports the credential was
+//   stored with (the browser decides: platform, USB key, hybrid/QR), as before.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const h = require('./helpers-auth.cjs');
@@ -24,7 +23,7 @@ async function enrollWith(uuid, transports) {
     return device;
 }
 
-test('registration options: local device only (platform attachment, client-device hint, resident key required)', async () => {
+test('registration options: local device preferred (platform attachment, client-device hint, resident key required)', async () => {
     h.seedUser('pco-1');
     const r = await passkeys.enrollmentOptions(h.strong('pco-1'), {}, h.client);
     assert.equal(r.status, 200, JSON.stringify(r.data));
@@ -37,16 +36,15 @@ test('registration options: local device only (platform attachment, client-devic
     });
 });
 
-test('authentication options: allowCredentials transports pinned to ["internal"] even if stored as hybrid', async () => {
+test('authentication options: allowCredentials keep the stored transports', async () => {
     h.seedUser('pco-2');
     const hybrid = await enrollWith('pco-2', ['hybrid']);
     const mixed = await enrollWith('pco-2', ['cable', 'usb', 'internal']);
-    const stored = h.credentials().find((c) => c.credentialId === hybrid.id);
-    assert.deepEqual(stored.transports, ['hybrid'], 'stored transports are left untouched');
 
     const r = await passkeys.loginOptions(h.preAuth('pco-2'), {}, h.client);
     assert.equal(r.status, 200, JSON.stringify(r.data));
-    const allowed = r.data.allowCredentials;
-    assert.deepEqual(allowed.map((c) => c.id).sort(), [hybrid.id, mixed.id].sort());
-    for (const c of allowed) assert.deepEqual(c.transports, ['internal'], c.id);
+    const byId = Object.fromEntries(r.data.allowCredentials.map((c) => [c.id, c.transports]));
+    assert.deepEqual(byId[hybrid.id], ['hybrid']);
+    assert.deepEqual(byId[mixed.id], ['cable', 'usb', 'internal']);
+    assert.equal(r.data.userVerification, 'required');
 });

@@ -1,5 +1,9 @@
 'use strict';
 const {
+    login_delay_in_seconds
+ } = require('../utils/config.js');
+
+const {
     findLocationFromIp
 } = require('../utils/location.js');
 
@@ -54,6 +58,11 @@ const responsePasskeys = async (user) => {
     }
     return result;
 };
+
+// Verified credentials, or legacy users.passkeys entries whose stored attestation
+// still yields a usable public key (they are verified cryptographically at login).
+const hasUsablePasskey = async (user) => user.hasVerifiedPasskey === true
+    || require('./passkeyService.js').decodeLegacyPasskeys(user).length > 0;
 
 const register = async function({ email, password }, client) {
     if (!email || !password) {
@@ -189,12 +198,10 @@ const requestLogin = async function(email, { agent, referer, ip}) {
 			return fakeUser(email, { agent, referer, ip });
 		}
 
-        // Only credentials from verified enrollment count. Legacy, never-verified
-        // passkeys (users.passkeys) do not set this flag and must re-enroll.
-        const hasPasskey = foundUser.hasVerifiedPasskey === true;
+        const hasPasskey = await hasUsablePasskey(foundUser);
         const hasMFA = foundUser.isMFAEnabled;
 
-        // Verified passkey: go straight to the passkey ceremony
+        // Passkey available: go straight to the passkey ceremony, as before
         if (hasPasskey) {
             return requestPasskeyVerification({
                 email: foundUser.email,
@@ -226,12 +233,6 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
 		throw generateError('Invalid user input', 'Must provide user password.', 400);
     }
 
-    // Same per-user, fail-closed 'login' budget as passkey login. Counted before
-    // the password check so failed attempts are bounded, and thrown outside the
-    // try below so the 429 keeps its retryAfterSeconds.
-    const { enforceRateLimit } = require('./sessionPolicy.js');
-    enforceRateLimit(uuid, 'login');
-
     let hashedPassword = hash(password);
 
     try {
@@ -246,10 +247,20 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
 			throw generateError('Unauthorized', 'User not found', 404);
 		}
 
+        // Verify last login action
+		// if the user logged in less than X minutes ago (configured by env variables),
+		// don't allow him/her to log in again, and ask to wait 5 minutes before retrying
+        // This extra check do not apply for passkey login because there is no brute force attack possible
+		const lastLogin = new Date(foundUser.last_login_date);
+
+        // 300 seconds is default value when config is missing
+        const loginDelay = (login_delay_in_seconds || 300) * 1000; // 5 minutes in milliseconds
+        if (lastLogin && (new Date() - lastLogin) < loginDelay) {
+            throw generateError('Unauthorized', 'Too many login attempt. Please retry later.', 401);
+        }
+
         const hasMFA = foundUser.isMFAEnabled;
-        // Only credentials from verified enrollment count. Legacy, never-verified
-        // passkeys (users.passkeys) do not set this flag and must re-enroll.
-        const hasPasskey = foundUser.hasVerifiedPasskey === true;
+        const hasPasskey = await hasUsablePasskey(foundUser);
 
         // If user has MFA, request MFA login
         if (hasMFA) {
@@ -421,11 +432,9 @@ const updateLastUpdatedDate = async function({ email, uuid }, last_update_date) 
 
 const update = async function({ email, uuid }, payload) {
     payload = payload || {};
-    if (payload.passkeys !== undefined) {
-        // Raw client-supplied passkeys are never accepted. The only write path is
-        // verified enrollment (POST users/passkeys/options + POST users/passkeys).
-        throw generateError('Passkey re-enrollment required', 'Use verified enrollment; client-supplied passkeys are not accepted.', 403);
-    }
+    // Client-supplied passkeys are ignored (the previous client still sends the
+    // list back): the only write path is verified enrollment.
+    delete payload.passkeys;
     try {
         const encryptedEmail = encrypt(email);
         const encryptedUuid = encrypt(uuid);

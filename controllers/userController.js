@@ -215,8 +215,8 @@ const getInformation = async function({ authorization }) {
 	}
 }
 
-// Authentication and vault unlock are distinct protocols. Never accept PRF
-// output on any user write/auth endpoint, even if the handler ignores the field.
+// Authentication and vault unlock are distinct protocols. PRF output must never
+// reach the two endpoints that carry WebAuthn material or user data.
 const withoutPRF = (handler, payloadIndex) => async (...args) => {
     try {
         require('../services/webauthnVerifier.js').assertNoPRF(args[payloadIndex]);
@@ -225,10 +225,10 @@ const withoutPRF = (handler, payloadIndex) => async (...args) => {
     }
     return handler(...args);
 };
-exports.login = withoutPRF(login, 0);
-exports.verifyPassword = withoutPRF(verifyPassword, 1);
+exports.login = login;
+exports.verifyPassword = verifyPassword;
 exports.verifyPasskey = withoutPRF(verifyPasskey, 1);
-exports.verifyOTP = withoutPRF(verifyOTP, 1);
-exports.register = withoutPRF(register, 0);
+exports.verifyOTP = verifyOTP;
+exports.register = register;
 exports.update = withoutPRF(update, 1);
 exports.getInformation = getInformation;

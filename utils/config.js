@@ -30,8 +30,9 @@ module.exports = {
     hash_salt: process.env.HASH_SALT,
     login_delay_in_seconds: process.env.LOGIN_DELAY_IN_SECONDS,
 
-    // WebAuthn relying party. Fallbacks are the production values; they are
-    // validated (HTTPS origin under rpID) by services/webauthnVerifier.js.
-    webauthn_rp_id: process.env.WEBAUTHN_RP_ID || 'jisme.app',
+    // WebAuthn relying party, validated by services/webauthnVerifier.js. The
+    // rpID defaults to the origin's hostname: passkeys enrolled by the previous
+    // client had no explicit rp.id, so they are scoped to that exact host.
     webauthn_origin: process.env.WEBAUTHN_ORIGIN || 'https://www.jisme.app',
+    webauthn_rp_id: process.env.WEBAUTHN_RP_ID || new URL(process.env.WEBAUTHN_ORIGIN || 'https://www.jisme.app').hostname,
 }

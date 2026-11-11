@@ -36,10 +36,15 @@ exports.preAuthenticated = async function (headers) {
     return session;
 };
 
+// Sessions issued before auth_time/amr existed (up to 90 days old) stay valid:
+// they were only ever minted after password (+ OTP when MFA was enabled).
+const isLegacySession = (session) => session.auth_time === undefined
+    && (!Array.isArray(session.amr) || session.amr.length === 0);
+
 exports.authenticated = async function (headers) {
     const session = await verified(headers);
     if (!session || session.isAuthorized !== true || typeof session.uuid !== 'string' || !session.uuid
-        || !Number.isSafeInteger(session.auth_time)) {
+        || !(Number.isSafeInteger(session.auth_time) || isLegacySession(session))) {
         throw unauthorized('A fully authenticated session is required; sign in again.');
     }
     return session;
@@ -47,12 +52,12 @@ exports.authenticated = async function (headers) {
 
 exports.passwordSession = async function (headers, { fresh = true, now = Date.now() } = {}) {
     const session = await exports.authenticated(headers);
-    const amr = Array.isArray(session.amr) ? session.amr : [];
+    const amr = isLegacySession(session) ? ['pwd', 'otp'] : (Array.isArray(session.amr) ? session.amr : []);
     if (!amr.includes('pwd')) {
         throw unauthorized('Sign in with your password (and MFA if enabled) to continue.');
     }
     if (fresh) {
-        const age = now - session.auth_time * 1000;
+        const age = Number.isSafeInteger(session.auth_time) ? now - session.auth_time * 1000 : Infinity;
         if (age < 0 || age >= RECENT_AUTH_MS) {
             throw generateError('Reauthentication required', 'Sign in again with your password (and MFA if enabled).', 401);
         }

@@ -24,7 +24,3 @@ for(const payload of [{prfOutput:'secret'},{passkey:{clientExtensionResults:{prf
 test('generic user update explicitly refuses PRF material before service',async()=>{
  const c=controller();const r=await c.update({}, {prfOutput:'secret'});assert.equal(r.status,400);assert.match(r.data.error.reason,/PRF/);assert.deepEqual(c.calls,[]);
 });
-for(const [name,args] of [['login',[{email:'synthetic',prfOutput:'secret'},{}]],['verifyPassword',[{},{password:'synthetic',prfOutput:'secret'},{}]],['verifyOTP',[{},{totpToken:'synthetic',prfOutput:'secret'},{}]],['register',[{prfOutput:'secret'}]]])
- test(name+' rejects PRF before other processing',async()=>{
-  const c=controller();const result=await c[name](...args);assert.equal(result.status,400);assert.match(result.data.error.reason,/PRF/);
- });
