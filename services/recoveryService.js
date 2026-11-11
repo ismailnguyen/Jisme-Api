@@ -85,12 +85,20 @@ const issueIfAbsent = async function (uuid, client) {
     return code;
 };
 
+// Issues a new code, replacing any existing one (the previous code stops
+// working). Shown exactly once, so a user who lost theirs can get another.
 const issue = async function (uuid, client) {
     const code = await issueIfAbsent(uuid, client);
-    if (!code) {
-        throw generateError('Recovery code already issued', 'A recovery code exists; use it via recovery verification to rotate it.', 409);
+    if (code) return { recoveryCode: code, notice: NOTICE };
+
+    const stored = await storage(() => repository.find(uuid));
+    const { code: nextCode, record } = await newRecord();
+    const rotated = stored && await storage(() => repository.rotate(uuid, stored.hash, { ...record, rotatedAt: new Date().toISOString() }));
+    if (!rotated) {
+        throw generateError('Recovery unavailable', 'The recovery code changed concurrently; try again.', 409);
     }
-    return { recoveryCode: code, notice: NOTICE };
+    await audit.record(uuid, 'recovery_code_rotated', client);
+    return { recoveryCode: nextCode, notice: NOTICE, replaced: true };
 };
 
 const verify = async function (uuid, body, client) {

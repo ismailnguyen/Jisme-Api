@@ -58,13 +58,24 @@ test('first-run vault setup returns a recovery code exactly once; only a salted 
     assert.ok(h.auditActions('rec-1').includes('recovery_code_issued'));
 });
 
-test('POST users/recovery issues for users without a code (any authenticated session, passkey included), then 409', async () => {
+test('POST users/recovery issues for users without a code (any authenticated session, passkey included); again replaces it', async () => {
     h.seedUser('rec-2');
     assert.equal((await recovery.issue(h.preAuth('rec-2'), {}, h.client)).status, 401);
     const r = await recovery.issue(h.strong('rec-2', { amr: ['webauthn'], authTime: h.nowS() - 3600 }), {}, h.client);
     assert.equal(r.status, 201);
     assert.match(r.data.recoveryCode, CODE);
-    assert.equal((await recovery.issue(h.strong('rec-2'), {}, h.client)).status, 409);
+    assert.equal(r.data.replaced, undefined);
+    // A lost code can be replaced: the new one is shown once, the old one stops working.
+    const again = await recovery.issue(h.strong('rec-2', { amr: ['webauthn'] }), {}, h.client);
+    assert.equal(again.status, 201, JSON.stringify(again.data));
+    assert.match(again.data.recoveryCode, CODE);
+    assert.notEqual(again.data.recoveryCode, r.data.recoveryCode);
+    assert.equal(again.data.replaced, true);
+    assert.ok(h.auditActions('rec-2').includes('recovery_code_rotated'));
+    const old = await recovery.verify(h.strong('rec-2'), { recoveryCode: r.data.recoveryCode, action: 'reset_unlock' }, h.client);
+    assert.equal(old.status, 401, JSON.stringify(old.data));
+    const current = await recovery.verify(h.strong('rec-2'), { recoveryCode: again.data.recoveryCode, action: 'reset_unlock' }, h.client);
+    assert.equal(current.status, 200, JSON.stringify(current.data));
     // vault first-run after explicit issuance does not issue a second code
     const v = await create('rec-2');
     assert.equal(v.data.recoveryCode, undefined);
