@@ -85,11 +85,7 @@ module.exports = function (app) {
 	.post(async ({ headers, connection, body }, response) => {
 		var client = extractClient({ headers, connection });
 
-		const { status, data } = await verifyPassword(headers, body, client);
-
-		response
-			.status(status)
-			.json(data);
+		send(response, await verifyPassword(headers, body, client));
 	});
 
 	app

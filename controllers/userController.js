@@ -48,7 +48,11 @@ const verifyPassword = async function({ authorization }, { password, isExtendedS
 			};
 		}
 		catch (error) {
-			return throwError(error);
+			const response = throwError(error);
+			if (error && error.code === 429) {
+				response.headers = { 'Retry-After': String(error.retryAfterSeconds || 60) };
+			}
+			return response;
 		}
 	}
 	catch (error) {
