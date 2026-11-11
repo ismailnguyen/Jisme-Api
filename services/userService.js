@@ -153,6 +153,25 @@ const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey, p
     };
 }
 
+const requestPasskeyVerification = ({ email, uuid, isOtpRequired, hasPasskey, passkeys, client }) => {
+    return {
+        email: decrypt(email),
+        token: generateUnsignedAccessToken({
+            email: decrypt(email),
+            uuid: decrypt(uuid),
+            step: 'request_passkey'
+        }, client),
+        isPasswordRequired: !hasPasskey,
+        isOtpRequired: isOtpRequired,
+        hasPasskey: hasPasskey,
+        passkeys,
+        next: {
+            step: 'verify_passkey',
+            url: '/login/passkey'
+        }
+    };
+}
+
 const requestLogin = async function(email, { agent, referer, ip}) {
     if (!email) {
 		throw generateError('Invalid user input', 'Must provide an email.', 400);
@@ -174,6 +193,18 @@ const requestLogin = async function(email, { agent, referer, ip}) {
         // passkeys (users.passkeys) do not set this flag and must re-enroll.
         const hasPasskey = foundUser.hasVerifiedPasskey === true;
         const hasMFA = foundUser.isMFAEnabled;
+
+        // Verified passkey: go straight to the passkey ceremony
+        if (hasPasskey) {
+            return requestPasskeyVerification({
+                email: foundUser.email,
+                uuid: foundUser.uuid,
+                isOtpRequired: hasMFA,
+                hasPasskey: hasPasskey,
+                passkeys: await responsePasskeys(foundUser),
+                client: { agent, referer, ip }
+            });
+        }
 
         // Otherwise request password login
         return requestPasswordVerification({
