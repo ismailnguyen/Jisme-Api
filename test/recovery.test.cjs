@@ -58,10 +58,10 @@ test('first-run vault setup returns a recovery code exactly once; only a salted 
     assert.ok(h.auditActions('rec-1').includes('recovery_code_issued'));
 });
 
-test('POST users/recovery issues for users without a code (fresh password session), then 409', async () => {
+test('POST users/recovery issues for users without a code (any authenticated session, passkey included), then 409', async () => {
     h.seedUser('rec-2');
-    assert.equal((await recovery.issue(h.strong('rec-2', { authTime: h.nowS() - 3600 }), {}, h.client)).status, 401);
-    const r = await recovery.issue(h.strong('rec-2'), {}, h.client);
+    assert.equal((await recovery.issue(h.preAuth('rec-2'), {}, h.client)).status, 401);
+    const r = await recovery.issue(h.strong('rec-2', { amr: ['webauthn'], authTime: h.nowS() - 3600 }), {}, h.client);
     assert.equal(r.status, 201);
     assert.match(r.data.recoveryCode, CODE);
     assert.equal((await recovery.issue(h.strong('rec-2'), {}, h.client)).status, 409);

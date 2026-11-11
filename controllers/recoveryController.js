@@ -1,5 +1,6 @@
 'use strict';
-// Recovery codes. Both endpoints need a fresh password(+MFA) session.
+// Recovery codes. Issuing one needs any authenticated session (passkey sign-in
+// included); using one (verify) needs a fresh password(+MFA) session.
 // Recovery never restores vault contents (see services/recoveryService.js).
 const recoveryService = require('../services/recoveryService.js');
 const policy = require('../services/sessionPolicy.js');
@@ -10,7 +11,7 @@ const fresh = (headers) => policy.passwordSession(headers, { fresh: true });
 // Fallback issuance for users whose first-run vault setup predates recovery
 // codes (or whose issuance failed). 409 once a code exists.
 exports.issue = endpoint({
-    resolve: fresh,
+    resolve: policy.authenticated,
     rateKind: 'sensitive',
     handler: async (session, _body, client) => ({ status: 201, data: await recoveryService.issue(session.uuid, client || session.client) }),
 });
