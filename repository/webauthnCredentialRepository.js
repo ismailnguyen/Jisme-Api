@@ -1,6 +1,6 @@
 'use strict';
 // Verified WebAuthn credentials (only written after verifyRegistrationResponse).
-// Document: { _id: H(credentialId), credentialId, owner: H(uuid), publicKey,
+// Document: { _id: H(credentialId), credentialId, owner: H(uuid), publicKey, name?,
 //   counter, transports, validated: true, createdAt, lastUsedAt }
 // Legacy, never-verified passkeys live in users.passkeys and are NEVER read here.
 const repository = require('./ports/repositoryPort.js');
@@ -13,11 +13,12 @@ const idOf = (credentialId) => keyOf('jisme.webauthn.credential.v1', credentialI
 exports.ownerOf = ownerOf;
 
 // Globally unique credential id: a second registration of the same id fails.
-exports.insert = async function (uuid, { credentialId, publicKey, counter, transports, createdAt }) {
+exports.insert = async function (uuid, { credentialId, publicKey, counter, transports, createdAt, name }) {
     assertSupported();
     return repository.insertOneExclusive(collection, { document: {
         _id: idOf(credentialId), credentialId, owner: ownerOf(uuid), publicKey, counter,
         transports, validated: true, createdAt, lastUsedAt: null,
+        ...(typeof name === 'string' && name ? { name } : {}),
     } });
 };
 
