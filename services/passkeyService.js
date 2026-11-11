@@ -29,6 +29,7 @@ const audit = require('./auditLog.js');
 
 const CHALLENGE_TTL_MS = 120000;
 const MAX_PASSKEYS_PER_USER = 10;
+const MAX_NAME_LENGTH = 64;
 const TRANSPORTS = ['ble', 'cable', 'hybrid', 'internal', 'nfc', 'smart-card', 'usb'];
 const AUTH_PURPOSES = ['authentication', 'vault-unlock'];
 
@@ -73,6 +74,13 @@ function sanitizeTransports(response) {
     return supplied.filter((transport, index) => TRANSPORTS.includes(transport) && supplied.indexOf(transport) === index);
 }
 
+// Optional user-chosen label: trimmed string, max 64 chars; anything else is dropped.
+function sanitizeName(name) {
+    if (typeof name !== 'string') return undefined;
+    const trimmed = name.trim().slice(0, MAX_NAME_LENGTH).trim();
+    return trimmed || undefined;
+}
+
 const registrationOptions = async function (uuid, userName) {
     const existing = await storage(() => credentials.listByUser(uuid));
     const challenge = await storage(() => challenges.issue(uuid, 'registration', Date.now(), CHALLENGE_TTL_MS));
@@ -86,7 +94,10 @@ const registrationOptions = async function (uuid, userName) {
         attestationType: 'none',
         supportedAlgorithmIDs: [-7],
         excludeCredentials: existing.map((c) => ({ id: c.credentialId, transports: c.transports })),
-        authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
+        // Local device only (platform attachment + 'client-device' hint): no
+        // hybrid QR / external password-manager prompt on iOS.
+        preferredAuthenticatorType: 'localDevice',
+        authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
     });
 };
 
@@ -107,19 +118,21 @@ const enroll = async function (uuid, body, client) {
     }
     const createdAt = new Date().toISOString();
     const transports = sanitizeTransports(response);
+    const name = sanitizeName(body.name);
     const inserted = await storage(() => credentials.insert(uuid, {
         credentialId: verified.id,
         publicKey: verified.publicKey,
         counter: verified.counter,
         transports,
         createdAt,
+        name,
     }));
     if (!inserted) {
         throw generateError('Passkey already registered', 'This passkey is already enrolled.', 409);
     }
     await setPasskeyFlag(uuid);
     await audit.record(uuid, 'passkey_enrolled', client);
-    return { id: verified.id, transports, createdAt };
+    return { id: verified.id, transports, createdAt, ...(name ? { name } : {}) };
 };
 
 // Keep IDs aligned with the client normalization for old user documents.
@@ -134,6 +147,8 @@ const list = async function (uuid) {
         transports: c.transports || [],
         createdAt: c.createdAt,
         lastUsedAt: c.lastUsedAt || null,
+        ...(typeof c.name === 'string' && c.name ? { name: c.name } : {}),
+        verified: true,
     })), ...legacy.filter((p) => isPlainObject(p) && typeof legacyId(p) === 'string'
         && !items.some((c) => c.credentialId === legacyId(p))).map((p) => ({
         id: legacyId(p),
@@ -195,7 +210,9 @@ const authenticationOptions = async function (uuid, purpose) {
         challenge: Buffer.from(challenge, 'base64url'),
         userVerification: 'required',
         timeout: CHALLENGE_TTL_MS,
-        allowCredentials: items.map((c) => ({ id: c.credentialId, transports: c.transports })),
+        // Transports are a client hint: pin to 'internal' (even for credentials
+        // stored as hybrid/cable) so iOS does not offer the hybrid QR flow.
+        allowCredentials: items.map((c) => ({ id: c.credentialId, transports: ['internal'] })),
     });
 };
 
