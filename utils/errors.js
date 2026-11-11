@@ -21,7 +21,18 @@ function Exception(message, error, code) {
 }
 
 exports.throwError = function(exception) {
-  return exception.toJSON();
+  if (exception && typeof exception.toJSON === 'function') {
+    return exception.toJSON();
+  }
+  return {
+    status: exception && exception.code ? exception.code : 500,
+    data: {
+      error: {
+        message: exception && exception.message || 'Error',
+        reason: (exception && exception.reason) || (exception && exception.message) || 'Unexpected error'
+      }
+    }
+  };
 }
 
 exports.generateError = function(reason, message, code) {

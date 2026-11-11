@@ -34,6 +34,31 @@ const {
 const { generateError } = require('../utils/errors.js');
 const accountService = require('../services/accountService.js');
 
+// Response-only projection: never write merged credentials into users.passkeys.
+const responsePasskeys = async (user) => {
+    const credentials = require('../repository/webauthnCredentialRepository.js');
+    const verified = await credentials.listByUser(decrypt(user.uuid));
+    const seen = new Set();
+    const result = [];
+    const append = (entry, id, isVerified) => {
+        if (typeof id !== 'string' || !id || seen.has(id)) return;
+        seen.add(id);
+        const item = { id, verified: isVerified };
+        const name = entry.name ?? entry.deviceName;
+        if (name !== undefined) item.name = name;
+        if (entry.createdAt !== undefined) item.createdAt = entry.createdAt;
+        if (entry.transports !== undefined) item.transports = entry.transports;
+        result.push(item);
+    };
+    for (const entry of verified) append(entry, entry.credentialId, true);
+    for (const entry of Array.isArray(user.passkeys) ? user.passkeys : []) {
+        if (entry && typeof entry === 'object') {
+            append(entry, entry.id ?? entry.credentialId ?? entry.passkey?.id, false);
+        }
+    }
+    return result;
+};
+
 const register = async function({ email, password }, client) {
     if (!email || !password) {
 		throw generateError('Invalid user input', 'Must provide an email and password.', 400);
@@ -93,7 +118,7 @@ const register = async function({ email, password }, client) {
     }
 }
 
-const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPasskey, client }) => {
+const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPasskey, passkeys, client }) => {
     return {
         email: decrypt(email),
         token: generateUnsignedAccessToken({
@@ -105,6 +130,7 @@ const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPass
         isPasswordRequired: isOtpRequired && !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
         isOtpRequired: isOtpRequired,
         hasPasskey: hasPasskey,
+        passkeys,
         next: {
             step: 'verify_otp',
             url: '/login/otp'
@@ -112,7 +138,7 @@ const requestOTPVerification = ({ email, uuid, avatarUrl, isOtpRequired, hasPass
     };
 }
 
-const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey, client }) => {
+const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey, passkeys, client }) => {
     return {
         email: decrypt(email),
         token: generateUnsignedAccessToken({
@@ -123,6 +149,7 @@ const requestPasswordVerification = ({ email, uuid, isOtpRequired, hasPasskey, c
         isPasswordRequired: !hasPasskey, // if there is no passkey, and MFA is enabled, requires pwd
         isOtpRequired: isOtpRequired,
         hasPasskey: hasPasskey,
+        passkeys,
         next: {
             step: 'verify_password',
             url: '/login/password'
@@ -158,6 +185,7 @@ const requestLogin = async function(email, { agent, referer, ip}) {
             uuid: foundUser.uuid,
             isOtpRequired: hasMFA,
             hasPasskey: hasPasskey,
+            passkeys: await responsePasskeys(foundUser),
             client: { agent, referer, ip }
         });
     }
@@ -210,6 +238,7 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
                 avatarUrl: foundUser.avatarUrl,
                 isOtpRequired: hasMFA,
                 hasPasskey: hasPasskey,
+                passkeys: await responsePasskeys(foundUser),
                 client: { agent, referer, ip }
             });
         }
@@ -435,7 +464,7 @@ const update = async function({ email, uuid }, payload) {
                 tokenExpiry: resolvedTokenExpiry,
                 avatarUrl: decrypt(userToUpdate.avatarUrl),
                 isMFAEnabled: userToUpdate.isMFAEnabled,
-                passkeys: userToUpdate.passkeys,
+                passkeys: await responsePasskeys(foundUser),
                 hasAccounts: userToUpdate.hasAccounts,
 
                 // as these are not updated, there are only present in the first find request
@@ -487,7 +516,7 @@ const getInformation = async function({ email, uuid }) {
             isMFAEnabled: foundUser.isMFAEnabled,
             totp_secret: decrypt(foundUser.totp_secret),
             public_encryption_key: decrypt(foundUser.public_encryption_key),
-            passkeys: foundUser.passkeys,
+            passkeys: await responsePasskeys(foundUser),
             activities: activities.map(a => ({
                 action: decrypt(a.action),
                 agent: decrypt(a.agent),

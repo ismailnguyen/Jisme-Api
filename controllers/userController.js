@@ -125,7 +125,7 @@ const verifyPasskey = async function ({ authorization } = {}, payload, { agent, 
 	}
 }
 
-const register = async function({ email, password }) {
+const register = async function({ email, password }, client) {
 	try {
 		const user = await userService.register(
 			{

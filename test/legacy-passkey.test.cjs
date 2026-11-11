@@ -27,6 +27,7 @@ function isolate(name,end,globals={}){
 }
 test('legacy credentials do not steer login into disabled passkey flow',async()=>{
  const call=isolate('requestLogin','verifyPassword',{
+  responsePasskeys:async()=>[],
   findUser:async()=>({email:'e',uuid:'u',passkeys:[{passkey:{id:'legacy'}}]}),encrypt:x=>x,
   requestPassKeyVerification:()=>({next:'passkey'}),requestPasswordVerification:()=>({next:'password'})
  });
