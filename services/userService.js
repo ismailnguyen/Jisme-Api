@@ -1,9 +1,5 @@
 'use strict';
 const {
-    login_delay_in_seconds
- } = require('../utils/config.js');
-
-const { 
     findLocationFromIp
 } = require('../utils/location.js');
 
@@ -199,11 +195,17 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
 		throw generateError('Invalid user input', 'Must provide user password.', 400);
     }
 
+    // Same per-user, fail-closed 'login' budget as passkey login. Counted before
+    // the password check so failed attempts are bounded, and thrown outside the
+    // try below so the 429 keeps its retryAfterSeconds.
+    const { enforceRateLimit } = require('./sessionPolicy.js');
+    enforceRateLimit(uuid, 'login');
+
     let hashedPassword = hash(password);
 
     try {
         const foundUser = await findUser({
-            query: { 
+            query: {
                 uuid: encrypt(uuid),
                 password: encrypt(hashedPassword)
             }
@@ -212,18 +214,6 @@ const verifyPassword = async function(uuid, password, isExtendedSession, { agent
         if (!foundUser) {
 			throw generateError('Unauthorized', 'User not found', 404);
 		}
-
-        // Verify last login action
-		// if the user logged in less than X minutes ago (configured by env variables),
-		// don't allow him/her to log in again, and ask to wait 5 minutes before retrying
-        // This extra check do not apply for passkey login because there is no brute force attack possible
-		const lastLogin = new Date(foundUser.last_login_date);
-
-        // 300 seconds is default value when config is missing
-        const loginDelay = (login_delay_in_seconds || 300) * 1000; // 5 minutes in milliseconds
-        if (lastLogin && (new Date() - lastLogin) < loginDelay) {
-            throw generateError('Unauthorized', 'Too many login attempt. Please retry later.', 401);
-        }
 
         const hasMFA = foundUser.isMFAEnabled;
         // Only credentials from verified enrollment count. Legacy, never-verified

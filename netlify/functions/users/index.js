@@ -125,13 +125,7 @@ const users_post = async function ({ headers, path, body }, context) {
         }
 
         if (action === 'login/password') {
-            const { status, data } = await verifyPassword(headers, jsonBody, client);
-
-            return {
-                statusCode: status,
-                ...CORS_HEADERS,
-                body: JSON.stringify(data)
-            };
+            return reply(await verifyPassword(headers, jsonBody, client));
         }
 
         if (action === 'login/passkey') {
